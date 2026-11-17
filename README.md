@@ -6,7 +6,9 @@ There is no AI inside. Everything a teacher builds is described by choosing from
 
 ## Use it
 
-Open `docs/index.html` in a browser. That file is the whole tool.
+**https://michaellomuscio.github.io/last-day-first/**
+
+Or open `docs/index.html` from this repository in a browser. That file is the whole tool.
 
 - **Try the five-minute warm-up** first: a flawed lesson to repair while the label changes.
 - **Start a new course**: pick a subject, a period length and how often the class meets, and say what you want your classroom to be like. Eight subjects have an optional starter kit.
