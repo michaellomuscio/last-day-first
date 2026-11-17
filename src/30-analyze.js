@@ -84,7 +84,7 @@ function shares(L) {
    When the class does not meet every day, an assignment has more than one night before it is due (`gap`), so the per-night
    figures (`max`, `avgNight`, `list`) spread its minutes across them; `total` and `maxSet` are the minutes as set. */
 function homeworkStats(c, lessons) {
-  const gap = Math.max(1, Math.round(5 / (c.school.perWeek || 5)));
+  const gap = Math.max(1, Math.round(1 / meetShare(c)));
   const H = { nights: 0, days: 0, total: 0, max: 0, maxSet: 0, gap, purpose: {}, kind: {}, fb: {}, graded: {}, device: 0, list: [] };
   for (const l of lessons) {
     const d = l.days || 1; H.days += d;

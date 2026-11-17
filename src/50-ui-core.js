@@ -28,13 +28,40 @@ function resolve(kind, id) {
     case 'hw': { const l = lessonOf(c, id); return l ? l.hw : null; }
     case 'block': { const p = id.split('/'), l = lessonOf(c, p[0]); return l ? byId(l.blocks, p[1]) : null; }
     case 'sw': { const p = id.split('/'), l = lessonOf(c, p[0]), b = l ? byId(l.blocks, p[1]) : null; return b ? (b.sw = b.sw || {}) : null; }
-    case 'ui': return App.sel; case 'rep': return App.rep;
+    case 'ui': return App.sel; case 'rep': return App.rep; case 'offname': return c.school.offNames || (c.school.offNames = {});
+    case 'pf': return pfGet(); case 'pfs': return pfGet().schedule; case 'pfc': return pfGet().calendar; case 'pfw': return pfGet().grading.weights; case 'pfg': return pfGet().grading; case 'pft': return pfGet().text; case 'pfe': return pfGet().expect; case 'pfon': return pfGet().calendar.offNames;
   }
   return null;
 }
 const parseVal = (v) => (v === 'true' ? true : v === 'false' ? false : v === 'null' ? null : v !== '' && !isNaN(v) ? +v : v);
 function setPath(path, value) { const p = path.split(':'), o = resolve(p[0], p[1]); if (o) o[p[2]] = value; return !!o; }
 function getPath(path) { const p = path.split(':'), o = resolve(p[0], p[1]); return o ? o[p[2]] : undefined; }
+
+/* ---------- settings a school profile has locked ---------- */
+const LOCK_PATHS = [[/^weights:/, 'weights'], [/^syllabus::late$/, 'late'], [/^syllabus::retake$/, 'retake'], [/^syllabus::honesty$/, 'honesty'], [/^syllabus::help$/, 'help'], [/^school::(period|perWeek)$/, 'schedule'], [/^school::(start|end|lost)$/, 'calendar'], [/^offname:/, 'calendar']];
+const LOCK_ACTS = { calDay: 'calendar', calHolidays: 'calendar', calClear: 'calendar', sylEven: 'weights', sylScale: 'weights' };
+/* Which lock, if any, stops this field or button being changed in the open course. The profile screen itself is never locked. */
+function lockOf(path, act, arg) {
+  const L = App.c && App.c.profile && App.c.profile.locks; if (!L || App.view === 'school') return null;
+  if (path) { for (const x of LOCK_PATHS) if (x[0].test(path) && L[x[1]]) return x[1]; return null; }
+  if (act === 'set' || act === 'toggle' || act === 'nudge') return lockOf(String(arg).split('=')[0]);
+  if (act === 'cycSet' || act === 'cycLen' || act === 'cycDay') return String(arg).split('=')[0] === 'c' && L.schedule ? 'schedule' : null;
+  if (act === 'offAdd' || act === 'offDel') return String(arg).split('=')[0] === 'c' && L.calendar ? 'calendar' : null;
+  return LOCK_ACTS[act] && L[LOCK_ACTS[act]] ? LOCK_ACTS[act] : null;
+}
+const lockSay = () => toast('Set by ' + ((App.c.profile && App.c.profile.name) || 'your school') + '. It cannot be changed in the course.');
+/* After each render, locked fields and buttons are switched off and say why. */
+function applyLocks() {
+  const L = App.c && App.c.profile && App.c.profile.locks; if (!L || App.view === 'school' || !Object.keys(L).length) return;
+  const why = 'Set by ' + (App.c.profile.name || 'your school');
+  $('main').querySelectorAll('[data-bind]').forEach((el) => { if (lockOf(el.dataset.bind)) { el.disabled = true; el.title = why; } });
+  $('main').querySelectorAll('[data-act]').forEach((el) => { if (lockOf(null, el.dataset.act, el.dataset.arg)) { el.disabled = true; el.title = why; } });
+}
+function lockNoteHTML() {
+  const P = App.c && App.c.profile; if (!P) return '';
+  const here = { calendar: ['schedule', 'calendar'], syllabus: ['weights', 'late', 'retake', 'honesty', 'help'] }[App.view] || [], on = PROFILE_LOCKS.filter((k) => here.includes(k[0]) && P.locks[k[0]]);
+  return on.length ? '<div class="locknote"><b>Set by ' + esc(P.name || 'your school') + ':</b> ' + on.map((k) => k[1].toLowerCase()).join('; ') + '. These are greyed out here.</div>' : '';
+}
 
 /* ---------- HTML helpers (all return strings) ---------- */
 const attrs = (a) => (a ? ' ' + a : '');
@@ -88,7 +115,7 @@ function computeFindings() { try { App.findings = App.c && typeof runChecks === 
 function renderTop() {
   const c = App.c;
   $('top').innerHTML = '<button class="word" data-act="go" data-arg="start" title="Home">Last Day <i>First</i></button>' +
-    (c && c.warm ? '<span class="grow"></span><button class="btn sm" data-act="go" data-arg="start">Leave the warm-up</button>' : c ? '<input class="title" data-bind="course::title" value="' + esc(c.title) + '" aria-label="Course title"><button class="btn sm" data-act="glossary" title="What the words on these pages mean">Words</button><button class="btn sm" data-act="saveFile" title="Download this course as a file you can reopen or hand to a mentor">Save file</button><button class="btn sm" data-act="go" data-arg="report">Report</button>' : '<span class="grow"></span>');
+    (c && c.warm ? '<span class="grow"></span><button class="btn sm" data-act="go" data-arg="start">Leave the warm-up</button>' : c ? '<input class="title" data-bind="course::title" value="' + esc(c.title) + '" aria-label="Course title"><button class="btn sm" data-act="go" data-arg="school" title="Your school\u2019s schedule, calendar, grading policy and expectations">' + (c.profile ? esc(short(c.profile.name || 'School', 18)) : 'School') + '</button><button class="btn sm" data-act="glossary" title="What the words on these pages mean">Words</button><button class="btn sm" data-act="saveFile" title="Download this course as a file you can reopen or hand to a mentor">Save file</button><button class="btn sm" data-act="go" data-arg="report">Report</button>' : '<span class="grow"></span>');
   const cnt = {}; App.findings.forEach((f) => { if (f.sev >= 2 && f.where) cnt[f.where.view] = (cnt[f.where.view] || 0) + 1; });
   $('nav').hidden = !c || !!c.warm || App.view === 'start';
   $('nav').innerHTML = c ? CHAPTERS.map((ch, k) => '<button data-act="go" data-arg="' + ch[0] + '" class="' + chapterState(c, ch[0]) + '"' + (App.view === ch[0] ? ' aria-current="page"' : '') + ' title="' + ch[2] + (chapterState(c, ch[0]) === 'done' ? ' (done)' : '') + '"><span class="n">' + (chapterState(c, ch[0]) === 'done' ? '✓' : k + 1) + '</span>' + ch[1] + (cnt[ch[0]] && App.view !== ch[0] ? '<span class="cnt" aria-label="' + cnt[ch[0]] + ' to fix">' + cnt[ch[0]] + '</span>' : '') + '</button>').join('') : '';
@@ -99,23 +126,25 @@ function sideHTML() {
     (fs.length ? fs.map((f) => '<button class="finding s' + f.sev + '" data-act="jump" data-arg="' + esc(JSON.stringify(f.where)) + '" title="' + esc(f.source || '') + '"><b>' + esc(f.text) + '</b><span>' + esc(f.why || '') + '</span></button>').join('') : '<p class="hint">Nothing flagged here. Checks run on every change.</p>') + '</div>';
 }
 function render() {
-  const c = App.c; if (!c && App.view !== 'start') App.view = 'start';
+  const c = App.c; if (!c && App.view !== 'start' && App.view !== 'school') App.view = 'start';
   const V = VIEWS[App.view] || VIEWS.start, main = $('main'), keep = main.scrollTop;
   computeFindings(); renderTop();
   const wide = !c || V.wide; $('body').className = 'body' + (wide ? ' wide' : ''); $('side').hidden = wide;
-  main.innerHTML = V.render(c) + (wide ? '' : '<div class="side-inline" data-live="sideinline">' + sideHTML() + '</div>'); main.scrollTop = App.scrollReset ? 0 : keep; App.scrollReset = false;
+  main.innerHTML = lockNoteHTML() + V.render(c) + (wide ? '' : '<div class="side-inline" data-live="sideinline">' + sideHTML() + '</div>'); main.scrollTop = App.scrollReset ? 0 : keep; App.scrollReset = false;
   if (!wide) $('side').innerHTML = sideHTML();
   document.title = (c && VIEWS[App.view] && App.view !== 'start' ? V.name + ' \u2013 ' : '') + 'Last Day First';
   if (V.after) V.after(main);
+  applyLocks();
 }
 /* While someone is typing, only the parts marked data-live are refreshed, so the caret never jumps. */
 function refreshLive() {
-  const V = VIEWS[App.view]; if (!V || !App.c) return;
+  const V = VIEWS[App.view]; if (!V || (!App.c && App.view !== 'school')) return;
   computeFindings();
   const tmp = document.createElement('div'); tmp.innerHTML = V.render(App.c) + (V.wide ? '' : '<div class="side-inline" data-live="sideinline">' + sideHTML() + '</div>');
   $('main').querySelectorAll('[data-live]').forEach((el) => { const n = tmp.querySelector('[data-live="' + el.dataset.live + '"]'); if (n && n.innerHTML !== el.innerHTML) el.innerHTML = n.innerHTML; });
   if (!$('side').hidden) $('side').innerHTML = sideHTML();
   if (V.live) V.live();
+  applyLocks();
 }
 function go(view, fromHistory) {
   if (App.c && App.c.warm && view !== 'lessons') { App.c = loadSaved(); App.sel = {}; view = 'start'; }
@@ -166,18 +195,20 @@ document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act]'); if (!el || el.disabled) return;
   const f = ACT[el.dataset.act]; if (!f) return;
   const act = el.dataset.act, arg = el.dataset.arg;
+  if (lockOf(null, act, arg)) { lockSay(); return; }
   if (f(arg, App.c, el, ev) === false) return;
   App.renderDue = false; save(); render();
   if (!App.modal && (!document.activeElement || document.activeElement === document.body)) { const all = Array.from(document.querySelectorAll('#main [data-act="' + act + '"], #top [data-act="' + act + '"], #nav [data-act="' + act + '"]')).filter((x) => !x.disabled), again = all.find((x) => x.dataset.arg === arg) || all[0]; (again || $('main')).focus({ preventScroll: true }); }
 });
 document.addEventListener('input', (ev) => {
-  const el = ev.target; if (!el.dataset || !el.dataset.bind || !App.c) return;
+  const el = ev.target; if (!el.dataset || !el.dataset.bind || (!App.c && App.view !== 'school')) return;
+  if (lockOf(el.dataset.bind)) { lockSay(); render(); return; }
   let v = el.value; if (el.dataset.num != null || el.type === 'range') { v = el.value === '' ? 0 : +el.value; if (!isFinite(v)) v = 0; if (!(+el.step > 0 && +el.step < 1)) v = Math.round(v); if (el.min !== '' && v < +el.min) v = +el.min; if (el.max !== '' && v > +el.max) v = +el.max; }
   if (el.type === 'checkbox') v = el.checked;
   setPath(el.dataset.bind, v); save();
   if (el.tagName !== 'SELECT' && el.type !== 'checkbox') refreshLive();
 });
-document.addEventListener('change', (ev) => { const el = ev.target; if (el.id === 'file') return openCourseFile(el); if (el.dataset && el.dataset.bind && App.c) { if (el.classList.contains('title')) return renderTop(); if (App.pressing) App.renderDue = true; else render(); } });
+document.addEventListener('change', (ev) => { const el = ev.target; if (el.id === 'file') return openCourseFile(el); if (el.dataset && el.dataset.bind && (App.c || App.view === 'school')) { if (el.classList.contains('title')) return renderTop(); if (App.pressing) App.renderDue = true; else render(); } });
 window.addEventListener('popstate', (ev) => { if (App.modal) closeModal(); go((ev.state && ev.state.view) || (location.hash || '').slice(1) || 'start', true); });
 document.addEventListener('keydown', (ev) => {
   if (!App.modal) return;
@@ -203,7 +234,10 @@ function openCourseFile(input) {
   const f = input.files && input.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = () => {
-    let c = null; try { c = JSON.parse(r.result); if (!c || !Array.isArray(c.units) || !Array.isArray(c.goals)) throw new Error('not a course'); c = migrate(c); } catch (e) { c = null; toast('That file is not a course saved from here.'); }
+    let c = null, raw = null; try { raw = JSON.parse(r.result); } catch (e) { raw = null; }
+    /* The same button opens a school profile: it is recognised by what is inside the file. */
+    if (raw && raw.kind === 'ldf-school') { input.value = ''; try { App.pf = cleanProfile(raw); pfSave(); App.pfUse = true; toast('Opened the school profile for ' + (App.pf.name || 'your school') + '.'); if (App.view === 'school' || App.view === 'start') render(); else go('school'); } catch (e) { toast('That school profile could not be read.'); } return; }
+    try { c = raw; if (!c || !Array.isArray(c.units) || !Array.isArray(c.goals)) throw new Error('not a course'); c = migrate(c); } catch (e) { c = null; toast('That file is not a course saved from here.'); }
     input.value = ''; if (c) replaceCourse(c, () => { go(c.units.length ? 'report' : 'goals'); toast('Opened ' + (c.title || 'the course') + '.'); });
   };
   r.readAsText(f);

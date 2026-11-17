@@ -38,15 +38,21 @@ function goalsCard(c, g) {
     '<div class="stack" style="gap:4px"><span class="lbl" id="gl-k-' + g.id + '">What kind</span>' + a11yGroup('gl-k-' + g.id, seg(p + 'kind', GOAL_KINDS, g.kind)) + '</div>' +
     '<div class="gl-two"><div class="stack" style="gap:4px"><label class="lbl" for="gl-lv-' + g.id + '">Thinking level</label>' + pick(p + 'level', LEVELS, g.level, 'id="gl-lv-' + g.id + '" data-num title="' + esc(lv ? lv[2] : '') + '"') + '</div>' +
     '<div class="stack" style="gap:4px"><label class="lbl" for="gl-un-' + g.id + '">Unit</label>' + pick(p + 'unit', unitOpts, g.unit || '', 'id="gl-un-' + g.id + '"') + '</div></div>' +
+    '<div class="stack" style="gap:4px"><label class="lbl" for="gl-st-' + g.id + '">Standards it meets <span class="hint" style="text-transform:none;letter-spacing:0">optional</span></label>' + field(p + 'std', g.std || '', 'id="gl-st-' + g.id + '" placeholder="Codes, separated by commas" list="gl-stds"') + '</div>' +
     '<div class="gl-foot" role="group" aria-label="Move or delete this goal"><span class="lbl">Move to</span>' + others.map((o) => '<button class="btn sm" data-act="goalMove" data-arg="' + g.id + '=' + o[0] + '">' + esc(o[1]) + '</button>').join('') +
     '<button class="btn sm ghost danger gl-del" data-act="goalDel" data-arg="' + g.id + '" aria-label="Delete this goal">Delete</button></div></div>';
 }
+/* With a whole starter kit loaded there can be fifty goals. Show one unit at a time if asked, and fold long columns. */
+const GOALS_FOLD = 5;
 function goalsColumns(c) {
-  return '<div class="gl-cols">' + PRIORITIES.map((pr) => {
-    const list = c.goals.filter((g) => g.priority === pr[0]), over = pr[0] === 'lasting' && list.length > goalsNeed(c);
-    return '<section class="gl-col ' + pr[0] + '"><header><h3>' + esc(pr[1]) + ' <b class="num" data-live="gl-n-' + pr[0] + '">' + list.length + '</b></h3><p class="hint">' + esc(pr[2]) + '</p>' +
-      (over ? '<p class="gl-nudge" data-live="gl-nudge">' + list.length + ' lasting goals for ' + plural(c.units.length, 'unit') + ' is a lot. If everything is lasting, nothing is.</p>' : '<span data-live="gl-nudge"></span>') + '</header>' +
+  const f = App.sel.goalUnit || '', inView = (g) => !f || (f === 'none' ? !g.unit : g.unit === f), stds = profileStandards(c.profile);
+  const filter = c.units.length ? '<div class="row wrap gl-filter"><label class="lbl" for="gl-f">Show goals for</label><span style="width:260px">' + pick('ui::goalUnit', [['', 'All units']].concat(c.units.map((u, i) => [u.id, (i + 1) + '. ' + short(u.title || 'Untitled unit', 34)]), [['none', 'No unit yet']]), f, 'id="gl-f"') + '</span><span class="hint">' + c.goals.filter(inView).length + ' of ' + plural(c.goals.length, 'goal') + '</span></div>' : '';
+  return filter + (stds.length ? '<datalist id="gl-stds">' + stds.map((s) => '<option value="' + esc(s.code) + '">' + esc(short(s.text, 80)) + '</option>').join('') + '</datalist>' : '') + '<div class="gl-cols">' + PRIORITIES.map((pr) => {
+    const all = c.goals.filter((g) => g.priority === pr[0]), shown = all.filter(inView), open = !!App.sel['ga_' + pr[0]] || shown.length <= GOALS_FOLD + 1, list = open ? shown : shown.slice(0, GOALS_FOLD).concat(shown.filter((g, k) => k >= GOALS_FOLD && g.id === App.sel.goal)), over = pr[0] === 'lasting' && all.length > goalsNeed(c);
+    return '<section class="gl-col ' + pr[0] + '"><header><h3>' + esc(pr[1]) + ' <b class="num" data-live="gl-n-' + pr[0] + '">' + shown.length + '</b></h3><p class="hint">' + esc(pr[2]) + '</p>' +
+      (over ? '<p class="gl-nudge" data-live="gl-nudge">' + all.length + ' lasting goals for ' + plural(c.units.length, 'unit') + ' is a lot. If everything is lasting, nothing is.</p>' : '<span data-live="gl-nudge"></span>') + '</header>' +
       list.map((g) => goalsCard(c, g)).join('') +
+      (shown.length > GOALS_FOLD + 1 ? '<button class="btn sm gl-more" data-act="set" data-arg="ui::ga_' + pr[0] + '=' + !open + '">' + (open ? 'Show fewer' : 'Show all ' + shown.length) + '</button>' : '') +
       '<button class="btn gl-add" data-act="goalAdd" data-arg="' + pr[0] + '">+ Add a goal</button></section>';
   }).join('') + '</div>';
 }

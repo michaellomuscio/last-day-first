@@ -8,3 +8,4 @@ LATE_POLICIES RETAKE_POLICIES DOCS packetHTML courseMarkdown courseFileName
 runChecks gradeCourse checksFor gradeLetter CHECK_AREAS
 simulate stressTest simStudents SIM_RULES simDetect
 syllabusMissing
+defaultOffNames offRuns offName meetShare goalStds PROFILE_LOCKS newProfile cleanProfile profileStandards applyProfile gradeWord gradeShow

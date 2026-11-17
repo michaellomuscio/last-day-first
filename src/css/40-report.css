@@ -43,3 +43,14 @@
 .ban.kit { background: var(--card); border: 1.5px dashed var(--ink3); clip-path: none; color: var(--ink2) }
 .warmhint { font-size: 13px; color: #d9d4c7; border-left: 3px solid var(--hi); padding-left: 10px }
 .modal p { color: var(--ink2); line-height: 1.5 }
+
+.gradegrid.words .gradebox b { font-size: 21px; line-height: 1.15; letter-spacing: -.01em; padding: 6px 0 }
+.school { max-width: 1180px }
+.pf-using, .locknote { padding: 10px 14px; border: 2px solid var(--line2); border-left: 7px solid var(--blue); background: var(--card); border-radius: var(--r); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: 1180px }
+.locknote { margin-bottom: 16px }
+.main :disabled[title^="Set by"] { cursor: not-allowed } .main :disabled[title^="Set by"]:not(.cal-d) { opacity: .55 }
+.offlist { display: grid; gap: 6px }
+.offrow { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 10px; align-items: center }
+.offadd .field { width: auto; flex: 0 1 170px } .offadd #off-name-pf, .offadd #off-name-c { flex: 1 1 160px }
+.gl-filter { margin-bottom: 4px } .gl-more { justify-self: start }
+@media (max-width: 700px) { .offrow { grid-template-columns: minmax(0, 1fr) auto } .offrow .num { grid-column: 1 / -1 } }

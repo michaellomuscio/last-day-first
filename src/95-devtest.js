@@ -61,6 +61,45 @@ function runUiTest() {
     App.c = demoCourse(); App.c.demo = true; App.sel = {}; go('lessons'); click('[data-act="lessonChooser"]'); click('#modal [data-act="addLesson"][data-arg="direct"]');
     const l = curLesson(App.c); need(l.blocks.length && l.blocks.every((b) => !b.goals.length), 'a ready-made lesson arrived tagged'); need(lessonLabel(App.c, l).orphan > 10 && /tied to no goal/.test($('main').textContent), 'untagged time is not pointed out');
   });
+  step('school profile screen, with and without a course', () => {
+    App.c = null; App.pf = newProfile(); go('school'); clean(); need(App.view === 'school', 'the profile screen needs no course');
+    const acts = Array.from(new Set(Array.from(document.querySelectorAll('#main [data-act]')).map((e) => e.dataset.act))).filter((x) => !['go', 'openFile', 'pfReset'].includes(x));
+    for (const x of acts) { const el = Array.from(document.querySelectorAll('#main [data-act="' + x + '"]')).find((e) => !e.disabled); if (el) { el.click(); if (App.modal) closeModal(); clean(); } }
+    const nm = $('pf-name'); nm.value = 'Riverside School'; nm.dispatchEvent(new Event('input', { bubbles: true })); need(App.pf.name === 'Riverside School' && pfLoad().name === 'Riverside School', 'the profile was not saved as it was typed');
+  });
+  step('a profile sets and locks a course', () => {
+    const P = newProfile(); P.name = 'Riverside School'; P.schedule = { period: 80, perWeek: 5, cycle: { len: 2, on: [1] } }; P.grading.weights = { major: 60, minor: 20, homework: 10, participation: 10 }; P.locks = { weights: true, calendar: true, schedule: true }; P.expect.hw = 20; P.gradeStyle = 'words'; P.standards = 'HS-LS1-2 Model of interacting systems\nHS-LS1-3 Feedback mechanisms'; P.standardsName = 'NGSS';
+    App.pf = cleanProfile(JSON.parse(JSON.stringify(P))); App.c = demoCourse(); App.c.demo = true; App.sel = {}; applyProfile(App.c, App.pf); const c = App.c;
+    need(c.school.period === 80 && c.school.cycle.len === 2 && c.syllabus.weights.major === 60 && c.gradeStyle === 'words' && c.profile.locks.weights, 'the profile was not applied');
+    need(Math.abs(meetingDates(c).length - 92) < 4, 'an A/B timetable should meet about half the school days, got ' + meetingDates(c).length);
+    go('syllabus'); clean(); need($('main').querySelector('.locknote'), 'no note that settings are set by the school');
+    const w = $('main').querySelector('[data-bind="weights::major"]'); need(w && w.disabled, 'a locked weight can still be typed in');
+    const nb = Array.from($('main').querySelectorAll('[data-act="nudge"]')).find((e) => /^weights::major/.test(e.dataset.arg)); need(nb && nb.disabled, 'a locked weight can still be nudged');
+    ACT.set('weights::major=5'); const before = c.syllabus.weights.major; nb.disabled = false; nb.click(); need(c.syllabus.weights.major === before || c.syllabus.weights.major === 5, 'check ran'); c.syllabus.weights.major = 60;
+    nb.disabled = false; nb.click(); need(c.syllabus.weights.major === 60, 'a click on a locked control changed the course');
+    go('calendar'); clean(); const d = $('main').querySelector('[data-act="calDay"]'); need(d && d.disabled, 'a locked calendar day can still be toggled'); need(/Rotating timetable/.test($('main').textContent) && /Winter break/.test($('main').innerHTML), 'the timetable and named days off are missing from Calendar');
+    go('report'); clean(); need(/Strong|Sound|Developing|Needs work|Not yet judged/.test($('main').querySelector('.gradegrid').textContent) && !/\bA−?\b/.test($('main').querySelector('.gradegrid b').textContent), 'grades are not shown in words'); need(/school.s expectations/.test($('main').textContent), 'the school expectations are not on the label');
+    c.goals[0].std = 'HS-LS1-2, HS-XX-9'; render(); const st = $('main').textContent; need(/HS-LS1-2/.test(st) && /HS-LS1-3/.test(st) && /no goal cites yet/.test(st), 'the standards table is missing or incomplete');
+    need(/HS-LS1-2/.test(packetHTML(c, ['scope'])), 'standards are not printed on the scope and sequence');
+    const back = migrate(JSON.parse(JSON.stringify(c))); need(back.profile && back.profile.locks.calendar && back.school.cycle && back.goals[0].std && back.school.offNames && Object.keys(back.school.offNames).length, 'the profile, timetable, standards or day names did not survive saving');
+    go('school'); clean(); click('[data-act="pfRemove"]'); need(!App.c.profile, 'the profile could not be removed'); go('syllabus'); need(!$('main').querySelector('[data-bind="weights::major"]').disabled, 'still locked after removing the profile');
+  });
+  step('rotating timetable and named days off in Calendar', () => {
+    App.c = demoCourse(); App.c.demo = true; App.sel = {}; go('calendar'); const c = App.c, daily = meetingDates(c).length;
+    click('[data-act="cycSet"][data-arg="c=cycle"]'); need(c.school.cycle && c.school.cycle.len === 2, 'no cycle'); click('[data-act="cycLen"][data-arg="c=1"]'); click('[data-act="cycLen"][data-arg="c=1"]'); click('[data-act="cycLen"][data-arg="c=1"]'); click('[data-act="cycLen"][data-arg="c=1"]'); need(c.school.cycle.len === 6, 'cycle length');
+    click('[data-act="cycDay"][data-arg="c=3"]'); click('[data-act="cycDay"][data-arg="c=5"]'); need(c.school.cycle.on.join() === '1,3,5' && Math.abs(meetingDates(c).length - daily / 2) < 3, 'a six-day cycle meeting on three days should give about half the days'); clean();
+    click('[data-act="cycSet"][data-arg="c=week"]'); need(!c.school.cycle && meetingDates(c).length === daily, 'could not go back to a weekly timetable');
+    const n = c.school.off.length; $('off-from-c').value = '2026-10-12'; $('off-to-c').value = '2026-10-13'; $('off-name-c').value = 'Fall break'; click('[data-act="offAdd"][data-arg="c"]'); need(c.school.off.length === n + 2 && offName(c, '2026-10-13') === 'Fall break', 'named days off were not added'); clean();
+    need(/Fall break/.test(packetHTML(c, ['pacing'])), 'the day name is not on the printed pacing guide');
+    click('[data-act="offDel"][data-arg="c=2026-10-12=2026-10-13"]'); need(c.school.off.length === n, 'days off were not removed');
+  });
+  step('long goal lists fold and filter', () => {
+    App.c = kitToCourse(KITS.find((k) => k.id === 'history'), newCourse({})); App.c.demo = true; App.sel = {}; go('goals'); const c = App.c;
+    const cards = () => $('main').querySelectorAll('.gl-goal').length; need(cards() < c.goals.length && cards() <= 18, 'a kit\u2019s goals are all shown at once: ' + cards());
+    click('.gl-more'); need(cards() > 18 || c.goals.length <= 18, 'show all did nothing');
+    const f = $('gl-f'); f.value = c.units[1].id; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); need(cards() === Math.min(cards(), unitGoals(c, c.units[1].id).length) && cards() > 0, 'the unit filter did not narrow the goals'); clean();
+    need($('main').querySelector('[data-bind$=":std"]'), 'no place to cite standards on a goal');
+  });
   step('a saved course is not replaced without asking', () => {
     const real = kitToCourse(KITS[0], newCourse({})); real.title = 'Keep me'; App.c = real; saveNow(); App.c = null; go('start');
     App.setup.kit = false; App.setup.title = 'Intruder'; ACT.begin(); need(document.querySelector('#modal [data-act="replaceGo"]'), 'no warning before replacing a saved course'); need(loadSaved().title === 'Keep me', 'saved course was overwritten before the answer');

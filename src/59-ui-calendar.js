@@ -24,7 +24,7 @@ function calCell(c, M, iso) {
   const d = dateOf(iso), n = d.getDate();
   if (iso < c.school.start || iso > c.school.end) return '<span class="cal-d gap" aria-hidden="true"></span>';
   const i = M.idx[iso], off = M.off.has(iso), btn = (cls, style, title, inner) => '<button class="cal-d ' + cls + '" data-act="calDay" data-arg="' + iso + '"' + (style ? ' style="' + style + '"' : '') + ' tabindex="' + (iso === calUI.tab ? 0 : -1) + '" title="' + esc(title) + '" aria-label="' + esc(title) + '"><span class="cal-n" aria-hidden="true">' + n + '</span>' + (inner || '') + '</button>';
-  if (off) return btn('off', '', calLong(iso) + '. Day off. Click to make it a school day again.');
+  if (off) return btn('off', '', calLong(iso) + '. ' + (offName(c, iso) || 'Day off') + '. Click to make it a school day again.');
   if (i == null) return btn('none', '', calLong(iso) + '. Your class does not meet. Click to mark a day off.');
   const day = M.days[i];
   if (!day) return btn('buf', '', calLong(iso) + '. Open day, after your last unit. Click to mark a day off.');
@@ -76,19 +76,19 @@ VIEWS.calendar = {
       '<div class="stack"><label class="lbl" for="cal-end">Last day</label><input id="cal-end" type="date" class="field" data-bind="school::end" value="' + esc(S.end) + '" aria-label="Last day of school"></div>' +
       '<div class="stack"><span class="lbl">Period length, in minutes</span><span>' + a11yStep('Period length in minutes', 'school::period', S.period, 20, 150, 5) + '</span></div>' +
       '<div class="stack"><span class="lbl">Class size</span><span>' + a11yStep('Class size', 'school::classSize', S.classSize, 1, 40, 1) + '</span></div>' +
-      '<div class="stack wide2"><span class="lbl" id="cal-l-meets">How often the class meets</span>' + a11yGroup('cal-l-meets', seg('school::perWeek', [[5, 'Every day'], [2.5, 'Every other day'], [4, '4 days (Mon to Thu)'], [3, '3 days (Mon, Wed, Fri)'], [2, '2 days (Tue, Thu)']], S.perWeek)) + '</div>' +
+      (S.cycle ? '<div class="stack wide2"><span class="lbl">How often the class meets</span><span class="hint">On a rotating timetable: ' + S.cycle.on.length + ' of every ' + S.cycle.len + ' school days. Change it under Rotating timetable below.</span></div>' : '') + '<div class="stack wide2"' + (S.cycle ? ' hidden' : '') + '><span class="lbl" id="cal-l-meets">How often the class meets</span>' + a11yGroup('cal-l-meets', seg('school::perWeek', [[5, 'Every day'], [2.5, 'Every other day'], [4, '4 days (Mon to Thu)'], [3, '3 days (Mon, Wed, Fri)'], [2, '2 days (Tue, Thu)']], S.perWeek)) + '</div>' +
       '<div class="stack wide2"><span class="lbl">Days you expect to lose</span><span class="row wrap">' + a11yStep('Days you expect to lose', 'school::lost', S.lost, 0, 60, 1) + '<span class="hint">to assemblies, drills, testing and weather. Most schools lose more than new teachers expect.</span></span></div>' +
       '<div class="stack wide2"><span class="lbl" id="cal-l-pace">How quickly your classes get moving</span>' + a11yGroup('cal-l-pace', seg('school::pace', [[0.5, 'Quickly'], [1, 'Typical'], [1.5, 'Slowly']], S.pace)) +
       '<span class="hint">This scales the setup and moving time the lesson builder adds, such as settling in and getting into groups. It is an assumption. No published figure exists, so use your own sense of your classes.</span></div></div></div>';
     const head = '<div class="ws-head"><div class="eyebrow">Chapter 4</div><h1>Pacing guide</h1><p>The year is shorter than it looks. Put your units on real dates, and leave room for the days that vanish.</p></div>';
-    return '<div class="ws cal">' + head + settings + '<div data-live="stats">' + calStatsHTML(c, M) + '</div>' +
+    return '<div class="ws cal">' + head + settings + (typeof calExtraHTML === 'function' ? calExtraHTML(c) : '') + '<div data-live="stats">' + calStatsHTML(c, M) + '</div>' +
       '<div class="panel"><h2>The school year <small>Click a weekday to make it a day off, or to put it back</small></h2><div data-live="grid">' + calGridsHTML(c, M) + '</div>' +
       '<div class="row wrap"><button class="btn sm" data-act="calHolidays" title="Replace your days off with the usual US holidays for this school year">Use the usual US holidays</button><button class="btn sm" data-act="calClear">Clear all days off</button><span class="hint" data-live="offn">' + plural(off, 'day') + ' off. Holidays are a starting point. Check your school calendar.</span></div></div>' +
       '<div class="panel" data-live="legend">' + calLegendHTML(c, M) + '</div></div>';
   },
 };
 ACT.calDay = (iso, c) => { calUI.cur = iso;  const a = c.school.off = c.school.off || [], k = a.indexOf(iso); if (k >= 0) a.splice(k, 1); else a.push(iso); a.sort(); };
-ACT.calHolidays = (a, c) => { if (!calIsoOk(c.school.start)) { toast('Pick a first day first.'); return false; } c.school.off = defaultDaysOff(calStartYear(c)); };
+ACT.calHolidays = (a, c) => { if (!calIsoOk(c.school.start)) { toast('Pick a first day first.'); return false; } c.school.off = defaultDaysOff(calStartYear(c)); c.school.offNames = defaultOffNames(calStartYear(c)); };
 /* One tab stop for the whole year. Arrow keys move by a day (left, right) or a week (up, down); Home and End jump to the first and last day.
    Enter or space press the focused day like any button. Moving the tab stop never redraws, so focus is not lost. */
 document.addEventListener('focusin', (ev) => {

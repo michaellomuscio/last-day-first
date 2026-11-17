@@ -43,7 +43,7 @@ function docsSpan(s) {
   const a = niceDate(s.start), b = niceDate(s.end);
   return (a === b ? a : a + ' to ' + b) + (s.fits ? '' : ' (runs past the last class day)');
 }
-const docsGoalLine = (g) => esc(g.text) + ' <em>(' + esc(docsLow(docsLab(GOAL_KINDS, g.kind)) + ', ' + docsLow(LEVEL_NAME[g.level] || '')) + ')</em>';
+const docsGoalLine = (g) => esc(g.text) + ' <em>(' + esc(docsLow(docsLab(GOAL_KINDS, g.kind)) + ', ' + docsLow(LEVEL_NAME[g.level] || '')) + ')</em>' + (goalStds(g).length ? ' <span class="muted">[' + esc(goalStds(g).join(', ')) + ']</span>' : '');
 /* Goals of a unit grouped by priority, lasting first. Returns HTML. */
 function docsGoalGroups(c, uid, tag) {
   const gs = c.goals.filter((g) => g.unit === uid); let h = '';
@@ -105,7 +105,7 @@ function docsPacing(c) {
         if (d.getMonth() !== m) { cells.push('<td></td>'); continue; }
         const iso = isoOf(d), num = '<span class="dn">' + d.getDate() + '</span> ';
         if (iso < c.school.start || iso > c.school.end) cells.push('<td><span class="muted">' + d.getDate() + '</span></td>');
-        else if (off.has(iso)) cells.push('<td>' + num + '<span class="muted">Day off</span></td>');
+        else if (off.has(iso)) cells.push('<td>' + num + '<span class="muted">' + esc(offName(c, iso) || 'Day off') + '</span></td>');
         else if (!meet.has(iso)) cells.push('<td>' + num + '<span class="muted">No class</span></td>');
         else {
           const x = by[iso];
@@ -298,8 +298,9 @@ function docsFindings(list) {
   });
   return order.map((a) => '<h3>' + esc(a.charAt(0).toUpperCase() + a.slice(1)) + '</h3>' + docsUl(groups[a])).join('');
 }
-function docsGrades(g) {
+function docsGrades(g, c) {
   if (!g) return '';
+  if (c && c.gradeStyle === 'words' && g.areas) g = { areas: g.areas.map((a) => Object.assign({}, a, { grade: gradeWord(a.score) })) };
   const arr = Array.isArray(g) ? g : g.areas || g.grades || g.items || g.rows || [];
   const cell = (v) => (v == null || v === '—' ? 'Not yet' : typeof v === 'object' ? esc(v.letter || v.grade || v.label || '') : esc(v));
   const overall = !Array.isArray(g) && g.overall != null ? '<p><strong>Overall:</strong> ' + cell(g.overall) + '</p>' : '';
@@ -316,7 +317,7 @@ function docsReport(c) {
   if (us.length === 1) h += '<h2>Unit by unit</h2><p>Only ' + esc(us[0].title) + ' has planned lessons so far, so the course label above is the label for that unit.</p>';
   else if (us.length) h += '<h2>Unit by unit</h2>' + us.map((u) => '<div class="lfwrap">' + labelHTML(unitLabel(c, u.id), { c, scope: 'unit', title: u.title }) + '</div>').join('');
   try {
-    if (typeof gradeCourse === 'function') { const G = gradeCourse(c); h += '<h2>Grades</h2>' + (G && G.enough === false ? '<p>It is too early to grade. Plan a few more lessons first.</p>' : docsGrades(G)); }
+    if (typeof gradeCourse === 'function') { const G = gradeCourse(c); h += '<h2>Grades</h2>' + (G && G.enough === false ? '<p>It is too early to grade. Plan a few more lessons first.</p>' : docsGrades(G, c)); }
     if (typeof runChecks === 'function') { const f = docsFindings(runChecks(c)); if (f) h += '<h2>Findings</h2>' + f; }
   } catch (e) { /* a broken check must never stop the packet */ }
   return h;

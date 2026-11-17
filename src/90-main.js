@@ -16,5 +16,5 @@ function boot() {
   App.wantTest = !!q.get('test');
 }
 /* A small handle for testers and the curious: the current course, its report data and its documents, from the browser console. */
-window.LDF = { get course() { return App.c; }, get view() { return App.view; }, label: () => courseLabel(App.c), checks: () => runChecks(App.c), grades: () => gradeCourse(App.c), simulate: (o) => simulate(App.c, o || {}), packet: (ids) => packetHTML(App.c, ids || []), markdown: () => courseMarkdown(App.c) };
+window.LDF = { get course() { return App.c; }, get profile() { return App.pf; }, get view() { return App.view; }, label: () => courseLabel(App.c), checks: () => runChecks(App.c), grades: () => gradeCourse(App.c), simulate: (o) => simulate(App.c, o || {}), packet: (ids) => packetHTML(App.c, ids || []), markdown: () => courseMarkdown(App.c) };
 boot();

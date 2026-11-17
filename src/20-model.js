@@ -15,12 +15,77 @@ function defaultDaysOff(y) {
   add(lastMon(y + 1, 4));                                // Memorial Day
   return out.sort();
 }
+/* Names for those days off, keyed by the first day of each run. */
+function defaultOffNames(y) {
+  const off = defaultDaysOff(y), n = {}, first = (iso) => off.find((x) => x >= iso), set = (iso, name) => { const f = first(iso); if (f) n[f] = name; };
+  set(y + '-09-01', 'Labor Day'); set(y + '-11-20', 'Thanksgiving break'); set(y + '-12-21', 'Winter break'); set((y + 1) + '-01-12', 'Martin Luther King Jr. Day'); set((y + 1) + '-02-12', 'Presidents Day');
+  set((y + 1) + '-04-01', 'Spring break'); set((y + 1) + '-05-22', 'Memorial Day');
+  return n;
+}
+/* Runs of consecutive days off (weekends do not break a run), each with the name given to its first day. */
+function offRuns(c) {
+  const off = (c.school.off || []).slice().sort(), names = c.school.offNames || {}, runs = [];
+  for (const iso of off) {
+    const last = runs[runs.length - 1]; let joins = false;
+    if (last) { const d = dateOf(last.to); do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6); joins = isoOf(d) === iso; }
+    if (joins) { last.to = iso; last.days++; } else runs.push({ from: iso, to: iso, days: 1, name: names[iso] || '' });
+  }
+  return runs;
+}
+const offName = (c, iso) => { const r = offRuns(c).find((x) => iso >= x.from && iso <= x.to); return r ? r.name : ''; };
+/* The share of school days on which this class meets. */
+const meetShare = (c) => { const s = c.school; return s.cycle ? s.cycle.on.length / s.cycle.len : (s.perWeek || 5) / 5; };
+/* Standards cited on a goal, as a list of codes. */
+const goalStds = (g) => String(g.std || '').split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
+
+/* ---------- school profile ---------- */
+/* A school leader fills this in once and hands the file to teachers. It carries the schedule and calendar, the grading policy,
+   school-wide syllabus text, house expectations and a standards list, and says which of those a teacher may not change (locks). */
+const PROFILE_LOCKS = [['schedule', 'Period length and how often classes meet'], ['calendar', 'First and last day, days off, days lost'], ['weights', 'Grading weights'], ['late', 'Late work policy'], ['retake', 'Retake policy'], ['honesty', 'Academic honesty text'], ['help', 'How to get help text']];
+function newProfile(y) {
+  y = y || 2026;
+  return { kind: 'ldf-school', v: 1, name: '', schedule: { period: 50, perWeek: 5, cycle: null }, calendar: { start: y + '-08-24', end: (y + 1) + '-06-04', off: defaultDaysOff(y), offNames: defaultOffNames(y), lost: 8 },
+    grading: { weights: { major: 50, minor: 25, homework: 15, participation: 10 }, late: 'window', retake: 'majors' }, text: { honesty: '', help: '' },
+    expect: { active: null, together: null, high: null, hw: null }, gradeStyle: 'letters', standardsName: '', standards: '', locks: {} };
+}
+const cleanCycle = (v) => { if (!v || typeof v !== 'object') return null; const len = Math.round(+v.len); if (!(len >= 2 && len <= 10)) return null; const on = Array.from(new Set((Array.isArray(v.on) ? v.on : []).map((x) => Math.round(+x)).filter((x) => x >= 1 && x <= len))).sort((a, b) => a - b); return on.length ? { len, on } : null; };
+const cleanOffNames = (v, off) => { const o = {}; if (v && typeof v === 'object') for (const k in v) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && off.includes(k) && v[k]) o[k] = String(v[k]).slice(0, 60); return o; };
+/* Makes a profile from a file safe to use, the same way migrate does for a course. Throws if it is not a profile. */
+function cleanProfile(p) {
+  if (!p || typeof p !== 'object' || p.kind !== 'ldf-school') throw new Error('not a school profile');
+  const d = newProfile(), obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), str = (v, n) => (v == null ? '' : String(v)).slice(0, n || 4000);
+  const int = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? Math.round(clamp(v, lo, hi)) : dflt; }, iso = (v, dflt) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : dflt);
+  const S = obj(p.schedule), C = obj(p.calendar), G = obj(p.grading), T = obj(p.text), E = obj(p.expect), L = obj(p.locks), W = obj(G.weights);
+  const off = (Array.isArray(C.off) ? C.off : d.calendar.off).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(0, 400).sort();
+  const ex = (v, hi) => (v == null || v === '' ? null : int(v, 0, hi, null)), locks = {};
+  for (const k of PROFILE_LOCKS) if (L[k[0]]) locks[k[0]] = true;
+  return { kind: 'ldf-school', v: 1, name: str(p.name, 120),
+    schedule: { period: int(S.period, 10, 240, 50), perWeek: [5, 4, 3, 2.5, 2, 1].includes(+S.perWeek) ? +S.perWeek : 5, cycle: cleanCycle(S.cycle) },
+    calendar: { start: iso(C.start, d.calendar.start), end: iso(C.end, d.calendar.end), off, offNames: cleanOffNames(C.offNames, off), lost: int(C.lost, 0, 80, 8) },
+    grading: { weights: { major: int(W.major, 0, 100, 50), minor: int(W.minor, 0, 100, 25), homework: int(W.homework, 0, 100, 15), participation: int(W.participation, 0, 100, 10) }, late: /^[a-z]{1,20}$/.test(G.late) ? G.late : 'window', retake: /^[a-z]{1,20}$/.test(G.retake) ? G.retake : 'majors' },
+    text: { honesty: str(T.honesty), help: str(T.help) }, expect: { active: ex(E.active, 100), together: ex(E.together, 100), high: ex(E.high, 100), hw: ex(E.hw, 240) },
+    gradeStyle: p.gradeStyle === 'words' ? 'words' : 'letters', standardsName: str(p.standardsName, 120), standards: str(p.standards, 20000), locks };
+}
+/* The standards list in a profile is plain text, one per line: a code, then what it says. */
+const profileStandards = (p) => String((p && p.standards) || '').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const m = /^(\S+)\s*(.*)$/.exec(l); return { code: m[1], text: m[2] }; });
+/* Puts a school's settings onto a course. Locked settings are copied; unlocked ones become the starting point and stay editable. */
+function applyProfile(c, p) {
+  p = cleanProfile(p);
+  c.school.period = p.schedule.period; c.school.perWeek = p.schedule.perWeek; c.school.cycle = p.schedule.cycle;
+  c.school.start = p.calendar.start; c.school.end = p.calendar.end; c.school.off = p.calendar.off.slice(); c.school.offNames = Object.assign({}, p.calendar.offNames); c.school.lost = p.calendar.lost;
+  c.syllabus.weights = Object.assign({}, p.grading.weights); c.syllabus.late = p.grading.late; c.syllabus.retake = p.grading.retake;
+  if (p.text.honesty) c.syllabus.honesty = p.text.honesty; if (p.text.help) c.syllabus.help = p.text.help;
+  c.gradeStyle = p.gradeStyle; if (p.standardsName) c.standardsName = p.standardsName;
+  c.profile = { name: p.name, locks: Object.assign({}, p.locks), expect: Object.assign({}, p.expect), standards: p.standards, standardsName: p.standardsName };
+  return c;
+}
 
 function newCourse(o) {
   o = o || {}; const y = o.year || 2026;
   return {
     v: COURSE_V, title: o.title || 'My course', subject: o.subject || 'other', grade: o.grade || '', teacher: o.teacher || '', seq: 1,
-    school: { period: o.period || 50, perWeek: o.perWeek || 5, start: y + '-08-24', end: (y + 1) + '-06-04', off: defaultDaysOff(y), lost: 8, pace: 1, classSize: 18 },
+    school: { period: o.period || 50, perWeek: o.perWeek || 5, cycle: null, start: y + '-08-24', end: (y + 1) + '-06-04', off: defaultDaysOff(y), offNames: defaultOffNames(y), lost: 8, pace: 1, classSize: 18 },
+    gradeStyle: 'letters', standardsName: '', profile: null,
     /* What the teacher says they want. The report compares the design to this, not to anyone else's idea of good teaching. */
     intent: { active: 50, together: 20, high: 20, hw: 30 },
     transfer: '', goals: [], units: [], lessons: [], assess: [],
@@ -38,16 +103,19 @@ function migrate(c) {
   const str = (v, n) => (v == null ? '' : String(v)).slice(0, n || 4000), has = (tbl, id) => tbl.some((x) => x[0] === id);
   const num = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? clamp(v, lo, hi) : dflt; }, int = (v, lo, hi, dflt) => Math.round(num(v, lo, hi, dflt));
   const opt = (v, tbl, dflt) => (has(tbl, v) ? v : dflt), iso = (v, dflt) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : dflt);
-  for (const k of ['school', 'intent', 'syllabus', 'game']) { c[k] = obj(c[k]); for (const f in d[k]) if (c[k][f] == null) c[k][f] = d[k][f]; }
+  const hadNames = c.school && typeof c.school === 'object' && c.school.offNames != null;
+  for (const k of ['school', 'intent', 'syllabus', 'game']) { c[k] = obj(c[k]); for (const f in d[k]) if (c[k][f] == null && f !== 'cycle') c[k][f] = d[k][f]; }
   for (const k of ['goals', 'units', 'lessons', 'assess', 'snaps']) c[k] = arr(c[k]).filter((x) => x && typeof x === 'object');
   const all = c.goals.concat(c.units, c.lessons, c.assess), seen = new Set();
   for (const x of all) { if (!ID_OK.test(String(x.id)) || seen.has(x.id)) throw new Error('bad id'); seen.add(x.id); }
   const gid = new Set(c.goals.map((g) => g.id)), uid = new Set(c.units.map((u) => u.id)), aid = new Set(c.assess.map((a) => a.id)), goals = (v, self) => arr(v).filter((g) => gid.has(g) && g !== self);
   c.v = COURSE_V; c.title = str(c.title, 200); c.subject = opt(c.subject, SUBJECTS, 'other'); c.grade = str(c.grade, 60); c.teacher = str(c.teacher, 120); c.transfer = str(c.transfer);
   const S = c.school; S.period = int(S.period, 10, 240, 50); S.perWeek = [5, 4, 3, 2.5, 2, 1].includes(+S.perWeek) ? +S.perWeek : 5; S.start = iso(S.start, d.school.start); S.end = iso(S.end, d.school.end);
-  S.off = arr(S.off).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(0, 400); S.lost = int(S.lost, 0, 80, 8); S.pace = [0.5, 1, 1.5].includes(+S.pace) ? +S.pace : 1; S.classSize = int(S.classSize, 6, 40, 18);
+  S.off = arr(S.off).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(0, 400); S.offNames = hadNames ? cleanOffNames(S.offNames, S.off) : {}; S.cycle = cleanCycle(S.cycle); S.lost = int(S.lost, 0, 80, 8);
+  c.gradeStyle = c.gradeStyle === 'words' ? 'words' : 'letters'; c.standardsName = str(c.standardsName, 120);
+  if (c.profile && typeof c.profile === 'object') { const P = c.profile, lk = {}, ex = obj(P.expect), e2 = {}; for (const k of PROFILE_LOCKS) if (obj(P.locks)[k[0]]) lk[k[0]] = true; for (const k of ['active', 'together', 'high', 'hw']) e2[k] = ex[k] == null || ex[k] === '' ? null : int(ex[k], 0, 240, null); c.profile = { name: str(P.name, 120), locks: lk, expect: e2, standards: str(P.standards, 20000), standardsName: str(P.standardsName, 120) }; } else c.profile = null; S.pace = [0.5, 1, 1.5].includes(+S.pace) ? +S.pace : 1; S.classSize = int(S.classSize, 6, 40, 18);
   const I = c.intent; I.active = int(I.active, 0, 100, 50); I.together = int(I.together, 0, 100, 20); I.high = int(I.high, 0, 100, 20); I.hw = int(I.hw, 0, 240, 30);
-  for (const g of c.goals) { g.text = str(g.text); g.kind = opt(g.kind, GOAL_KINDS, 'knowledge'); g.priority = opt(g.priority, PRIORITIES, 'important'); g.level = int(g.level, 1, 4, 2); g.unit = uid.has(g.unit) ? g.unit : null; g.after = goals(g.after, g.id); }
+  for (const g of c.goals) { g.text = str(g.text); g.kind = opt(g.kind, GOAL_KINDS, 'knowledge'); g.priority = opt(g.priority, PRIORITIES, 'important'); g.level = int(g.level, 1, 4, 2); g.unit = uid.has(g.unit) ? g.unit : null; g.after = goals(g.after, g.id); g.std = str(g.std, 300); }
   for (const u of c.units) { u.title = str(u.title, 200); u.days = int(u.days, 0, 400, 10); u.questions = arr(u.questions).map((q) => str(q, 600)).slice(0, 12); u.source = opt(u.source, SOURCES, 'adopt'); u.sourceNote = str(u.sourceNote); u.note = str(u.note); }
   c.assess = c.assess.filter((a) => uid.has(a.unit));
   for (const a of c.assess) {
@@ -87,7 +155,7 @@ const unitGoals = (c, uid) => c.goals.filter((g) => g.unit === uid);
 const plannedDays = (c, uid) => sum(unitLessons(c, uid).map((l) => l.days || 1));
 
 /* ---------- making things ---------- */
-function addGoal(c, o) { const g = Object.assign({ id: newId(c, 'G'), text: '', kind: 'understanding', priority: 'important', level: 2, unit: null, after: [] }, o || {}); c.goals.push(g); return g; }
+function addGoal(c, o) { const g = Object.assign({ id: newId(c, 'G'), text: '', kind: 'understanding', priority: 'important', level: 2, unit: null, after: [], std: '' }, o || {}); c.goals.push(g); return g; }
 function addUnit(c, o) { const u = Object.assign({ id: newId(c, 'U'), title: 'New unit', days: 15, questions: [], source: 'adopt', sourceNote: '', note: '' }, o || {}); c.units.push(u); return u; }
 function addLesson(c, uid, o) { const l = Object.assign({ id: newId(c, 'L'), unit: uid, title: 'New lesson', days: 1, blocks: [], hw: null, note: '' }, o || {}); c.lessons.push(l); return l; }
 function addBlock(c, lesson, moveId, min, at) {
@@ -124,7 +192,9 @@ function blockEff(b) {
 }
 
 /* ---------- the calendar ---------- */
-/* Every date the class meets, in order. perWeek 5 = daily, 4 = Mon-Thu, 3 = Mon/Wed/Fri, 2 = Tue/Thu, 2.5 = every other school day. */
+/* Every date the class meets, in order. perWeek 5 = daily, 4 = Mon-Thu, 3 = Mon/Wed/Fri, 2 = Tue/Thu, 2.5 = every other school day.
+   With a rotating cycle (school.cycle = { len, on }), school days are numbered 1..len round and round, skipping days off, and the
+   class meets on the days listed in `on`. An A/B schedule is a cycle of 2. */
 function meetingDates(c) {
   const s = c.school, off = new Set(s.off), out = []; let k = 0;
   /* A half-typed date (year 0202, or an end in 9999) must not make the page walk through centuries of days. */
@@ -133,7 +203,8 @@ function meetingDates(c) {
   for (let d = dateOf(s.start), end = dateOf(s.end); d <= end; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
     const iso = isoOf(d), dow = d.getDay();
     if (dow === 0 || dow === 6 || off.has(iso)) continue;
-    if (days ? days.includes(dow) : k++ % 2 === 0) out.push(iso);
+    if (s.cycle) { if (s.cycle.on.includes(k++ % s.cycle.len + 1)) out.push(iso); }
+    else if (days ? days.includes(dow) : k++ % 2 === 0) out.push(iso);
   }
   return out;
 }

@@ -41,5 +41,12 @@ function labelHTML(L, o) {
     for (const r of rows) h += '<div class="lf-int ' + (r[1] + 0.05 >= r[2] ? 'ok' : 'gap') + '"><span>' + r[0] + '</span><span>' + pc(r[2]) + '+</span><span>' + pc(r[1]) + '</span></div>';
     if (L.hw && L.hw.nights) h += '<div class="lf-int ' + (L.hw.max <= I.hw ? 'ok' : 'gap') + '"><span>Homework a night, at most</span><span>' + I.hw + ' min</span><span>' + f1(L.hw.max) + ' min</span></div>';
   }
+  /* House expectations from a school profile, shown beside the teacher's own intent and never in place of it. */
+  const E = c && c.profile && c.profile.expect, erows = E ? [['Students active', S.active, E.active, 1], ['Working in pairs or groups', S.together, E.together, 1], ['Strategic or extended thinking', S.high, E.high, 1]].filter((r) => r[2] != null) : [];
+  if (E && (erows.length || (E.hw != null && L.hw && L.hw.nights))) {
+    h += '<div class="lf-bar mid"></div><div class="lf-head"><span>Against your school\u2019s expectations</span><span>it asks</span><span>this is</span></div>';
+    for (const r of erows) h += '<div class="lf-int ' + (r[1] + 0.05 >= r[2] / 100 ? 'ok' : 'gap') + '"><span>' + r[0] + '</span><span>' + r[2] + '%+</span><span>' + pc(r[1]) + '</span></div>';
+    if (E.hw != null && L.hw && L.hw.nights) h += '<div class="lf-int ' + (L.hw.max <= E.hw ? 'ok' : 'gap') + '"><span>Homework a night, at most</span><span>' + E.hw + ' min</span><span>' + f1(L.hw.max) + ' min</span></div>';
+  }
   return h + '<div class="lf-foot">This measures the plan, not the room. The shares follow how each block is described; change a block and they change.</div></div>';
 }

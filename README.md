@@ -21,10 +21,10 @@ Eight chapters. Each produces a real piece of the course.
 
 | Chapter | What they do | What comes out |
 | --- | --- | --- |
-| 1. Goals | Write the course aim. Sort goals into lasting, important and worth meeting. Link each goal to the ideas it builds on. | The web of ideas |
+| 1. Goals | Write the course aim. Sort goals into lasting, important and worth meeting. Link each goal to the ideas it builds on, and cite the standards it meets. Long lists fold and filter by unit. | The web of ideas |
 | 2. Sequence | Lay out units, give each its days, questions and goals, and choose where the materials come from. | Scope and sequence |
 | 3. Evidence | Before any lesson, design the major and minor assessments for each unit. | Assessment plan |
-| 4. Calendar | Put the units on real dates with days off and a buffer. | Pacing guide |
+| 4. Calendar | Put the units on real dates, on a weekly or rotating timetable, with named days off and a buffer. | Pacing guide |
 | 5. Lessons | Build class periods from timed blocks while the classroom plays and the label updates. | Unit and lesson plans |
 | 6. Homework | See every night's load across a unit and adjust it. | Homework plan |
 | 7. Syllabus | Set grading weights and policies; watch the syllabus write itself. | Syllabus |
@@ -69,6 +69,21 @@ The label compares a design with what the teacher said they wanted. It does not 
 - **Teach it twice**: save a version, redesign, and compare the two.
 - **The packet**: scope and sequence, pacing guide, unit plans, lesson plans, assessment plan, homework plan, syllabus and the report, to print, save as PDF, or download for Word or as Markdown.
 
+## For a school
+
+A school leader can fill in a **school profile** once (the *School* button, or *Set up a school profile* on the first page), download it as a file and hand it to teachers. When a teacher opens the file, new courses start from it. A profile carries:
+
+- the timetable: period length, and either a weekly pattern or a rotating cycle (A/B days, or a cycle of up to ten days that skips days off);
+- the school year: first and last day, days a class usually loses, and days off with their names;
+- the grading policy: weights, late work and retakes;
+- text for every syllabus: academic honesty and how students get help;
+- what the school expects (share of time students are active, in pairs or groups, at higher thinking levels; a homework limit), shown on every label beside the teacher's own aims and never in place of them;
+- whether grades show as letters or as words (Strong, Sound, Developing, Needs work);
+- a list of standards, so teachers can cite codes on their goals and the report can show which standards have goals and evidence;
+- which of these teachers may not change. Locked settings are greyed out in the course and say who set them.
+
+Nothing is sent anywhere. The profile is a file, checked and repaired when opened like a course file.
+
 ## What it is honest about
 
 - A syllabus that is not ready prints with a draft notice saying what is missing.
@@ -79,7 +94,7 @@ The label compares a design with what the teacher said they wanted. It does not 
 - A course file opened from elsewhere is checked and repaired before use, and refused if it cannot be a course.
 - The simulated class illustrates well-established findings about practice, spacing, feedback and forgetting. It is not a forecast of real students, and the report shows bands, not percentages.
 - Several famous numbers in this field are weaker than their reputation. `research/` records what was verified, what was only found second-hand and what could not be confirmed.
-- The approach is backward design, set out by Grant Wiggins and Jay McTighe. Their name for their framework is a registered trademark, so the tool describes the ideas in its own words and credits them.
+- The approach is backward design, set out by Grant Wiggins and Jay McTighe. Their name for their framework is a registered trademark, so the tool describes the ideas in its own words and credits them. The tool is independent: it is not associated with them or with any of the researchers whose published work it draws on, and none of them has reviewed or endorsed it.
 
 ## Starter kits
 
@@ -105,7 +120,7 @@ For the interface, open `dist/index.html?test=1`: a script visits every screen f
 | `src/40-sim.js` | The simulated class and the stress test |
 | `src/45-docs.js` | The documents in the packet |
 | `src/kits/` | The eight starter kits |
-| `src/50-ui-core.js` to `src/64-game.js` | The shell, the eight screens, the warm-up and banners |
+| `src/50-ui-core.js` to `src/64-game.js` | The shell, the eight screens, the school profile, the warm-up and banners |
 | `src/95-devtest.js` | The click-through test |
 | `src/css/` | Styles, one file per screen |
 | `research/` | The three research briefs the design rests on, with sources |
@@ -124,6 +139,5 @@ Before release the tool was played and examined by scripted reviewers in six rol
 ## Not built yet
 
 - Feedback on what teachers write in their own words. That would need AI and a hosted service.
-- A school profile that sets house expectations for the grades.
 - A view for a mentor or department across several teachers' courses.
 - A companion for real classroom visits using the same codes, to compare the design with what was observed.

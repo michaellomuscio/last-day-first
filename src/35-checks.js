@@ -18,6 +18,9 @@
 const CHECK_AREAS = [['alignment', 'Alignment'], ['evidence', 'Evidence'], ['feasibility', 'Feasibility'], ['practice', 'Practice and feedback'], ['workload', 'Workload'], ['intent', 'Intent']];
 const CHECK_WEIGHT = { 2: 10, 1: 4, 0: 1 };
 
+/* Grades can be shown as letters or as words; a school profile or the teacher chooses. */
+const gradeWord = (s) => (s == null ? 'Not yet judged' : s >= 90 ? 'Strong' : s >= 80 ? 'Sound' : s >= 70 ? 'Developing' : 'Needs work');
+const gradeShow = (c, area) => (c && c.gradeStyle === 'words' ? gradeWord(area.score) : area.grade);
 function gradeLetter(s) {
   if (s == null) return '—';
   return s >= 93 ? 'A' : s >= 90 ? 'A−' : s >= 87 ? 'B+' : s >= 83 ? 'B' : s >= 80 ? 'B−' : s >= 77 ? 'C+' : s >= 73 ? 'C' : s >= 70 ? 'C−' : s >= 60 ? 'D' : 'F';
