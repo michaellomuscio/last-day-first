@@ -48,8 +48,8 @@ function hwvSplit(title, table, data, colors, total) {
 function hwvSummary(c, scope, H) {
   if (!H.days) return '<p class="hint">There are no planned lessons here yet, so there is nothing to add up.</p>';
   const limit = c.intent && c.intent.hw > 0 ? c.intent.hw : 0;
-  return '<div class="hwv-figs"><div class="hwv-fig"><b>' + H.nights + '<small> of ' + H.days + '</small></b><span>nights have homework</span></div>' +
-    '<div class="hwv-fig"><b>' + Math.round(H.avgNight) + '<small> min</small></b><span>on a typical night with homework</span></div>' +
+  return '<div class="hwv-figs"><div class="hwv-fig"><b>' + H.nights + '<small> of ' + H.days + '</small></b><span>' + (H.gap > 1 ? 'class days set homework' : 'nights have homework') + '</span></div>' +
+    '<div class="hwv-fig"><b>' + Math.round(H.avgNight) + '<small> min</small></b><span>' + (H.gap > 1 ? 'a night, spread over the ' + H.gap + ' nights before the next class' : 'on a typical night with homework') + '</span></div>' +
     '<div class="hwv-fig' + (limit && H.max > limit ? ' warn' : '') + '"><b>' + H.max + '<small> min</small></b><span>on the longest night' + (limit && H.max > limit ? ', over your limit of ' + limit : '') + '</span></div>' +
     '<div class="hwv-fig"><b>' + hwvPct(H.device, H.total) + '<small>%</small></b><span>of homework minutes need a device or internet</span></div></div>' +
     '<div class="hwv-splits">' + hwvSplit('By purpose', HW_PURPOSES, H.purpose, HWV_COLOR, H.total) + hwvSplit('By kind', HW_KINDS, H.kind, null, H.total) + hwvSplit('By feedback', HW_FEEDBACK, H.fb, null, H.total) + hwvSplit('By grading', HW_GRADING, H.graded, null, H.total) + '</div>' +

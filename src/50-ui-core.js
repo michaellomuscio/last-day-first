@@ -90,7 +90,7 @@ function renderTop() {
   $('top').innerHTML = '<button class="word" data-act="go" data-arg="start" title="Home">Last Day <i>First</i></button>' +
     (c && c.warm ? '<span class="grow"></span><button class="btn sm" data-act="go" data-arg="start">Leave the warm-up</button>' : c ? '<input class="title" data-bind="course::title" value="' + esc(c.title) + '" aria-label="Course title"><button class="btn sm" data-act="glossary" title="What the words on these pages mean">Words</button><button class="btn sm" data-act="saveFile" title="Download this course as a file you can reopen or hand to a mentor">Save file</button><button class="btn sm" data-act="go" data-arg="report">Report</button>' : '<span class="grow"></span>');
   const cnt = {}; App.findings.forEach((f) => { if (f.sev >= 2 && f.where) cnt[f.where.view] = (cnt[f.where.view] || 0) + 1; });
-  $('nav').hidden = !c || !!c.warm;
+  $('nav').hidden = !c || !!c.warm || App.view === 'start';
   $('nav').innerHTML = c ? CHAPTERS.map((ch, k) => '<button data-act="go" data-arg="' + ch[0] + '" class="' + chapterState(c, ch[0]) + '"' + (App.view === ch[0] ? ' aria-current="page"' : '') + ' title="' + ch[2] + (chapterState(c, ch[0]) === 'done' ? ' (done)' : '') + '"><span class="n">' + (chapterState(c, ch[0]) === 'done' ? '✓' : k + 1) + '</span>' + ch[1] + (cnt[ch[0]] && App.view !== ch[0] ? '<span class="cnt" aria-label="' + cnt[ch[0]] + ' to fix">' + cnt[ch[0]] + '</span>' : '') + '</button>').join('') : '';
 }
 function sideHTML() {

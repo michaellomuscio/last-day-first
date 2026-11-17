@@ -175,7 +175,7 @@ VIEWS.goals = {
       '<div class="gl-narrow">' + mentor(MENTOR.goals(c)) + '</div>' +
       '<section class="panel gl-aim"><label class="gl-aimh" for="gl-aim">The aim of the course</label><p class="hint">Finish this sentence in your own words. Keep it to what a student could do alone, long after your class.</p>' +
       '<div class="gl-lead">Years from now, on their own, students should be able to…</div>' +
-      '<textarea class="area" id="gl-aim" data-bind="course::transfer" rows="3" placeholder="…explain how living things work, and weigh a health claim against the evidence for it.">' + esc(c.transfer) + '</textarea></section>' +
+      '<textarea class="area" id="gl-aim" data-bind="course::transfer" rows="3" placeholder="…read a hard text closely and say what they think about it and why. (Write yours for your own subject.)">' + esc(c.transfer) + '</textarea></section>' +
       '<div class="row between wrap"><div class="stack" style="gap:2px"><h2 class="gl-h2">Goals, by how much they matter</h2><p class="hint">A goal is one thing students should know, be able to do, or understand. The Lasting column should be short.</p></div>' +
       '<button class="btn" data-act="goalPractice">Practise: fact, skill or big idea?</button></div>' +
       goalsColumns(c) +

@@ -20,7 +20,6 @@
 .blk.over { background: repeating-linear-gradient(135deg, #cfc8b8 0 6px, #e9e2d3 6px 12px); padding: 0 }
 .blk.spare { background: repeating-linear-gradient(90deg, transparent 0 7px, var(--line) 7px 8px); border-right: 0; padding: 0 }
 .bell { position: absolute; top: -9px; bottom: -9px; width: 0; border-left: 3px dashed var(--red); pointer-events: none }
-.bell i { position: absolute; top: -13px; left: -14px; font: 800 10px var(--f-ui); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--red) }
 .head { position: absolute; top: -6px; bottom: -6px; width: 3px; background: var(--ink); left: 0; pointer-events: none; box-shadow: 0 0 0 2px var(--hi) }
 .ruler { position: relative; height: 16px; margin-top: 3px }
 .ruler span { position: absolute; transform: translateX(-50%); font: 600 10.5px var(--f-ui); color: var(--ink3); font-variant-numeric: tabular-nums }

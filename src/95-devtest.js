@@ -47,6 +47,20 @@ function runUiTest() {
     click('[data-act="repStress"]'); need(App.rep.stress && App.rep.stress.lost.length, 'no stress test'); click('[data-act="repSnap"]'); need(App.c.snaps.length === 1, 'no snapshot');
     need(packetHTML(App.c, []).length > 5000 && courseMarkdown(App.c).length > 500, 'packet too small'); need($('main').querySelector('.fp') && $('main').querySelector('.web'), 'no fingerprint or web');
   });
+  step('versions can be brought back', () => {
+    App.c = demoCourse(); App.c.demo = true; App.sel = {}; go('report'); const c = App.c, n = c.lessons.length;
+    click('[data-act="repSnap"]'); need(c.snaps.length === 1 && c.snaps[0].course, 'the version did not keep the course');
+    c.lessons.pop(); c.title = 'Changed'; render(); click('[data-act="repRestore"]'); need(App.c.lessons.length === n && App.c.title === 'Biology' && App.c.snaps.length === 1 && App.c.snaps[0].name === 'Before going back', 'going back did not restore the course'); clean();
+  });
+  step('homework on a class that meets every other day', () => {
+    const c = demoCourse(), a = homeworkStats(c, c.lessons); c.school.perWeek = 2.5; const b = homeworkStats(c, c.lessons);
+    need(b.gap === 2 && Math.abs(b.max - a.max / 2) < 0.01 && b.total === a.total && b.maxSet === a.max, 'minutes were not spread over the nights before the next class');
+    App.c = c; c.demo = true; App.sel = {}; go('homework'); clean(); go('report'); clean();
+  });
+  step('a new block is not tied to a goal the teacher did not choose', () => {
+    App.c = demoCourse(); App.c.demo = true; App.sel = {}; go('lessons'); click('[data-act="lessonChooser"]'); click('#modal [data-act="addLesson"][data-arg="direct"]');
+    const l = curLesson(App.c); need(l.blocks.length && l.blocks.every((b) => !b.goals.length), 'a ready-made lesson arrived tagged'); need(lessonLabel(App.c, l).orphan > 10 && /tied to no goal/.test($('main').textContent), 'untagged time is not pointed out');
+  });
   step('a saved course is not replaced without asking', () => {
     const real = kitToCourse(KITS[0], newCourse({})); real.title = 'Keep me'; App.c = real; saveNow(); App.c = null; go('start');
     App.setup.kit = false; App.setup.title = 'Intruder'; ACT.begin(); need(document.querySelector('#modal [data-act="replaceGo"]'), 'no warning before replacing a saved course'); need(loadSaved().title === 'Keep me', 'saved course was overwritten before the answer');

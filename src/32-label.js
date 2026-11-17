@@ -31,7 +31,7 @@ function labelHTML(L, o) {
   if (L.orphan > 0.5) h += line('Learning time tied to no goal', '<b>' + f1(avg(L.orphan)) + ' min</b>', 'warn');
   if (L.hw) {
     h += '<div class="lf-bar mid"></div><div class="lf-head"><span>Homework</span><span></span><span></span></div>';
-    h += L.hw.nights ? line('Set on', '<b>' + L.hw.nights + ' of ' + L.hw.days + ' nights</b>') + line('On those nights', '<b>' + f1(L.hw.avgNight) + ' min</b> <i>longest ' + f1(L.hw.max) + '</i>') +
+    h += L.hw.nights ? line('Set after', '<b>' + L.hw.nights + ' of ' + plural(L.hw.days, 'class day') + '</b>') + line(L.hw.gap > 1 ? 'A night, spread over the ' + L.hw.gap + ' nights before the next class' : 'On those nights', '<b>' + f1(L.hw.avgNight) + ' min</b> <i>longest ' + f1(L.hw.max) + '</i>') +
       '<div class="lf-note"><b>What it is for</b> ' + split(L.hw.purpose, HW_PURPOSES) + '</div>' + line('Needs a device or internet', '<b>' + pc(L.hw.device / (L.hw.total || 1)) + '</b>') : '<div class="lf-note">None set.</div>';
   }
   if (c) {

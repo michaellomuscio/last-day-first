@@ -4,6 +4,8 @@ const DEFAULT_MIN = { entry: 3, announce: 2, break: 2, cleanup: 2, directions: 3
   guided: 10, indep: 12, partner: 10, drill: 6, game: 15, sread: 10, closeread: 12, write: 20, lab: 30, task: 20, studio: 25, projwork: 30, research: 20, peer: 10, gallery: 10, present: 20, perform: 15, test: 40, ptask: 40,
   confer: 15, goover: 8, seminar: 25, debate: 25, simulate: 20, stations: 24, skillp: 15, readaloud: 8 };
 const famColor = (mix) => FAMILY_BY[dominantFam(mix)].color;
+/* Minutes written the same way everywhere: whole when whole, one decimal otherwise. */
+const fmtMin = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
 
 function curUnit(c) { let u = unitOf(c, App.sel.unit); if (!u) { u = c.units[0] || null; App.sel.unit = u ? u.id : null; } return u; }
 function curLesson(c) { const u = curUnit(c); if (!u) return null; const ls = unitLessons(c, u.id); let l = ls.find((x) => x.id === App.sel.lesson); if (!l) { l = ls[0] || null; App.sel.lesson = l ? l.id : null; App.sel.block = null; } return l; }
@@ -16,7 +18,7 @@ function stripHTML(c, l, L) {
     else { const b = l.blocks[s.i], F = FAMILY_BY[dominantFam(s.mix)]; h += '<button class="blk' + (App.sel.block === b.id ? ' sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '" aria-pressed="' + (App.sel.block === b.id) + '" aria-label="' + esc(s.e.move.name + ', ' + b.min + ' minutes, mostly ' + F.name.toLowerCase()) + '" style="width:' + w(b.min) + ';background:' + F.color + ';color:' + F.text + '" title="' + esc(s.e.move.name + ', ' + b.min + ' min') + '"><b>' + esc(s.e.move.name) + '</b><i>' + b.min + '</i></button>'; }
   }
   if (L.total < L.period) h += '<span class="blk spare" style="width:' + w(L.period - L.total) + '" title="Unplanned time"></span>';
-  h += '<span class="bell" style="left:' + w(L.period) + '" title="The bell"><i>bell</i></span><span class="head" id="playhead"></span></div><div class="ruler">';
+  h += '<span class="bell" style="left:' + w(L.period) + '" title="The bell, at ' + L.period + ' minutes"></span><span class="head" id="playhead"></span></div><div class="ruler">';
   const stepMin = span > 70 ? 10 : 5; for (let m = 0; m <= span; m += stepMin) h += '<span style="left:' + w(m) + '">' + m + '</span>';
   /* The same blocks as a plain list: easier to tap on a phone and to read aloud. Shown only on narrow screens. */
   h += '</div><ol class="blocklist">' + L.segs.filter((s) => !s.over).map((s) => { const b = l.blocks[s.i]; return '<li><button class="' + (App.sel.block === b.id ? 'sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '"><i class="dot" style="background:' + famColor(s.mix) + '"></i><span>' + esc(s.e.move.name) + '</span><b>' + b.min + ' min</b></button></li>'; }).join('') + '</ol>';
@@ -31,11 +33,11 @@ function blockInspector(c, l, b) {
     '<p class="hint">' + esc(m.does) + '</p>' +
     '<div class="row wrap"><span class="lbl">Minutes</span>' + stepper('block:' + p + ':min', b.min, 1, 240, 1) + '<span class="row">' + [-5, 5].map((d) => '<button class="btn sm" data-act="nudge" data-arg="block:' + p + ':min=' + d + '=1=240">' + (d > 0 ? '+' : '−') + '5</button>').join('') + '</span></div>' +
     (m.sw || []).map((s) => '<div class="stack"><span class="lbl">' + esc(s.label) + '</span>' + seg('sw:' + p + ':' + s.id, s.opts.map((o) => [o.id, o.label]), (b.sw && b.sw[s.id]) || s.opts[0].id) + '</div>').join('') +
-    (m.pu === 'N' && !b.pu ? '' : '<div class="stack"><span class="lbl">Which goals is this for?</span>' + goalPicker('block:' + p + ':goals', goals.concat(others), b.goals) + '</div>') +
-    '<details' + (b.pu || b.lv || b.note || b.assess ? ' open' : '') + '><summary>Fine-tune how this block is described</summary><div class="stack" style="padding-top:10px">' +
+    (m.pu === 'N' && !b.pu ? '' : '<div class="stack"><span class="lbl">Which goals is this for?' + (b.goals.length ? '' : ' <span class="tag warn">none chosen yet</span>') + '</span>' + goalPicker('block:' + p + ':goals', goals.concat(others), b.goals) + '</div>') +
+    (m.grp === 'show' && as.length ? '<div class="stack"><span class="lbl">Is this the class time for one of your assessments?</span>' + pick('block:' + p + ':assess', [['', 'No, it stands alone']].concat(as.map((a) => [a.id, (a.kind === 'major' ? 'Major: ' : 'Check: ') + a.title])), b.assess || '', 'aria-label="Assessment this block is the class time for"') + (() => { const a = assessOf(c, b.assess); if (!a) return ''; const have = sum(c.lessons.map((x) => sum(x.blocks.filter((k) => k.assess === a.id).map((k) => k.min)) * (x.days || 1))); return a.min > have + 2 ? '<span class="hint"><span class="tag warn">short</span> \u201c' + esc(short(a.title, 40)) + '\u201d is set to need ' + a.min + ' minutes in class. Blocks tied to it add up to ' + have + '.</span>' : ''; })() + '</div>' : '') +
+    '<details' + (b.pu || b.lv || b.note ? ' open' : '') + '><summary>Fine-tune how this block is described</summary><div class="stack" style="padding-top:10px">' +
     '<div class="stack"><span class="lbl">Purpose <span class="hint" style="text-transform:none;letter-spacing:0">usually ' + optName(PURPOSES, m.pu).toLowerCase() + '</span></span>' + seg('block:' + p + ':pu', [['null', 'As usual']].concat(PURPOSES.filter((x) => x[0] !== 'N').map((x) => [x[0], x[1], x[2]])), b.pu || 'null') + '</div>' +
     '<div class="stack"><span class="lbl">Thinking level <span class="hint" style="text-transform:none;letter-spacing:0">usually ' + LEVEL_NAME[e.move.lv].toLowerCase() + '</span></span>' + seg('block:' + p + ':lv', [['null', 'As usual']].concat(LEVELS.map((x) => [x[0], x[1], x[2]])), b.lv || 'null') + '</div>' +
-    (m.grp === 'show' && as.length ? '<div class="stack"><span class="lbl">This is the class time for</span>' + pick('block:' + p + ':assess', [['', 'No particular assessment']].concat(as.map((a) => [a.id, a.title])), b.assess || '') + '</div>' : '') +
     '<div class="stack"><span class="lbl">Your notes</span>' + area('block:' + p + ':note', b.note || '', 'placeholder="What you will say, show or hand out"') + '</div></div></details></div>';
 }
 function homeworkHTML(c, l) {
@@ -58,12 +60,12 @@ VIEWS.lessons = {
     if (!u) return '<div class="ws"><div class="ws-head"><div class="eyebrow">Chapter 5</div><h1>Lessons</h1></div>' + empty('A lesson belongs to a unit. Lay out your units first.', '<button class="btn pri" data-act="go" data-arg="sequence">Go to Sequence</button>') + '</div>';
     const ls = unitLessons(c, u.id), l = curLesson(c), used = plannedDays(c, u.id);
     const list = '<div class="lessons-list"><h1 class="sr">Lessons in ' + esc(u.title) + '</h1><div class="stack"><span class="lbl">Unit</span>' + pick('ui::unit', c.units.map((x, k) => [x.id, (k + 1) + '. ' + x.title]), u.id, 'aria-label="Unit"') + '<span class="hint" data-live="days"><b class="num">' + used + '</b> of ' + u.days + ' days planned' + (used > u.days ? ' <span class="tag bad">over</span>' : '') + '</span></div>' +
-      '<div class="stack" data-live="list">' + ls.map((x, k) => { const L = lessonLabel(c, x); return '<button class="card lcard' + (l && x.id === l.id ? ' sel' : '') + '" data-act="selLesson" data-arg="' + x.id + '"><span class="row between"><b>' + (k + 1) + '. ' + esc(short(x.title, 30)) + '</b>' + (x.days > 1 ? tag(x.days + ' days') : '') + '</span>' + miniStrip(c, x) + '<span class="row between hint"><span>' + Math.round(L.total) + ' min' + (L.over > 0.5 ? ' <span class="tag bad">' + Math.round(L.over) + ' over</span>' : '') + '</span><span>' + (x.hw ? 'HW ' + x.hw.min + ' min' : '') + '</span></span></button>'; }).join('') + '</div>' +
+      '<div class="stack" data-live="list">' + ls.map((x, k) => { const L = lessonLabel(c, x); return '<button class="card lcard' + (l && x.id === l.id ? ' sel' : '') + '" data-act="selLesson" data-arg="' + x.id + '"><span class="row between"><b>' + (k + 1) + '. ' + esc(short(x.title, 30)) + '</b>' + (x.days > 1 ? tag(x.days + ' days') : '') + '</span>' + miniStrip(c, x) + '<span class="row between hint"><span>' + fmtMin(L.total) + ' min' + (L.over > 0.5 ? ' <span class="tag bad">' + fmtMin(L.over) + ' over</span>' : '') + '</span><span>' + (x.hw ? 'HW ' + x.hw.min + ' min' : '') + '</span></span></button>'; }).join('') + '</div>' +
       '<button class="btn' + (ls.length ? ' sm' : ' pri') + '" data-act="lessonChooser">+ Add a lesson</button></div>';
     if (!l) return '<div class="ws lessons"><div class="lgrid">' + list + '<div class="stack">' + '<div class="ws-head"><div class="eyebrow">Chapter 5 · ' + esc(u.title) + '</div><h1>Plan the days</h1><p>You know where this unit ends and how you will know students got there. Now build the class periods that get them there. Start with a ready-made shape and change it, or start blank.</p></div>' + mentor(MENTOR.lessons(c)) + '</div></div></div>';
     const L = lessonLabel(c, l), b = byId(l.blocks, App.sel.block), k = ls.indexOf(l);
     const editor = '<div class="stack editor"><div class="row"><input class="field big grow" data-bind="lesson:' + l.id + ':title" value="' + esc(l.title) + '" aria-label="Lesson title"><span class="lbl">Days</span>' + stepper('lesson:' + l.id + ':days', l.days, 1, 20, 1) + '</div>' +
-      '<div class="row wrap"><button class="btn sm ghost" data-act="moveLesson" data-arg="-1" ' + (k === 0 ? 'disabled' : '') + '>↑ Earlier</button><button class="btn sm ghost" data-act="moveLesson" data-arg="1" ' + (k === ls.length - 1 ? 'disabled' : '') + '>↓ Later</button><button class="btn sm ghost" data-act="dupLesson">Copy this lesson</button><button class="btn sm ghost danger" data-act="delLesson">Delete</button><span class="grow"></span><span class="hint" data-live="fit">' + (L.over > 0.5 ? '<span class="tag bad">Runs ' + Math.round(L.over) + ' min past the bell</span>' : L.total ? '<span class="tag good">Fits, ' + Math.round(-L.over) + ' min spare</span>' : '') + '</span></div>' +
+      '<div class="row wrap"><button class="btn sm ghost" data-act="moveLesson" data-arg="-1" ' + (k === 0 ? 'disabled' : '') + '>↑ Earlier</button><button class="btn sm ghost" data-act="moveLesson" data-arg="1" ' + (k === ls.length - 1 ? 'disabled' : '') + '>↓ Later</button><button class="btn sm ghost" data-act="dupLesson">Copy this lesson</button><button class="btn sm ghost danger" data-act="delLesson">Delete</button><span class="grow"></span><span class="hint" data-live="fit">' + (L.over > 0.5 ? '<span class="tag bad">Runs ' + fmtMin(L.over) + ' min past the bell</span>' : L.total ? '<span class="tag good">Fits, ' + fmtMin(-L.over) + ' min spare</span>' : '') + '</span></div>' +
       '<div data-live="strip">' + stripHTML(c, l, L) + '</div>' + (l.blocks.length ? '' : '<p class="hint">Pick blocks below to fill the period. Hatched grey is time for settling, moving and packing up that the plan did not include.</p>') +
       (b ? blockInspector(c, l, b) : l.blocks.length ? '<p class="hint">Click a block on the strip to change it.</p>' : '') + paletteHTML() + homeworkHTML(c, l) +
       '<div class="panel"><h2>Materials and notes <small>Printed on the lesson plan</small></h2>' + area('lesson:' + l.id + ':note', l.note || '', 'placeholder="What to have ready, the text or problem set, where the handouts are"') + '</div></div>';
@@ -84,7 +86,7 @@ MENTOR.lessons = (c) => {
   const L = lessonLabel(c, l), S = shares(L);
   if (!l.blocks.length) return ['Ask first: what will students be doing at minute ten? Then at minute thirty?'];
   if (L.over > 0.5) out.push('This runs past the bell. Something has to go. Decide now, at your desk, not at minute 48.');
-  if (L.orphan > 3) out.push('Some of this time is tied to no goal. If you cannot say what it is for, students cannot either.');
+  if (L.orphan > 3) out.push('Some blocks are tied to no goal yet. Click one and choose what it is for. If you cannot say, students cannot either.');
   if (L.stretch.min >= 25 && L.stretch.fam === 'take') out.push(Math.round(L.stretch.min) + ' minutes of listening in one stretch. It can work. Would a question to a partner in the middle cost you anything?');
   if (L.show < 2 && L.learn > 20) out.push('Nobody shows you what they know today. How will you find out who is lost before tomorrow?');
   if (!out.length && S.active >= c.intent.active / 100) out.push('This matches what you said you wanted. Press play and watch it once before you move on.');
@@ -97,8 +99,6 @@ ACT.selBlock = (a, c) => { App.sel.block = App.sel.block === a ? null : a; const
 ACT.lessonChooser = () => { openModal('<h2>Add a lesson</h2><p class="hint">Start from a shape you recognise and change it, or start with an empty period. Every block can be changed afterwards.</p><div class="shapes"><button class="card" data-act="addLesson" data-arg=""><b>Blank lesson</b><span class="hint">An empty period.</span></button>' + PATTERNS.map((p) => '<button class="card" data-act="addLesson" data-arg="' + p.id + '"><b>' + p.name + '</b><span class="hint">' + p.does + '</span></button>').join('') + '</div><div class="foot"><button class="btn" data-act="closeModal">Cancel</button></div>'); return false; };
 ACT.addLesson = (a, c) => {
   const u = curUnit(c), n = unitLessons(c, u.id).length, l = addLesson(c, u.id, { title: 'Lesson ' + (n + 1) }); if (a) applyPattern(c, l, a);
-  /* Blocks from a shape start out tied to the unit's first goal, so nothing is orphaned before the teacher has looked. */
-  const g = unitGoals(c, u.id)[0]; if (g) l.blocks.forEach((b) => { if (MOVE_BY[b.move].pu !== 'N') b.goals = [g.id]; });
   App.sel.lesson = l.id; App.sel.block = null; App.play.t = 0; closeModal();
 };
 ACT.dupLesson = (a, c) => { const l = curLesson(c), n = clone(l); n.id = newId(c, 'L'); n.title = l.title + ' (copy)'; n.blocks.forEach((b) => (b.id = newId(c, 'B'))); c.lessons.splice(c.lessons.indexOf(l) + 1, 0, n); App.sel.lesson = n.id; App.sel.block = null; };
@@ -109,13 +109,14 @@ ACT.addMove = (a, c) => {
   const at = App.sel.block ? l.blocks.findIndex((b) => b.id === App.sel.block) + 1 : l.blocks.length, L = lessonLabel(c, l);
   let m = DEFAULT_MIN[a] || 10; if (a === 'test' || a === 'ptask') m = Math.max(10, c.school.period - 8);
   const b = addBlock(c, l, a, m, at);
-  if (MOVE_BY[a].pu !== 'N') { const prev = l.blocks[at - 1]; b.goals = prev && prev.goals.length ? prev.goals.slice() : unitGoals(c, l.unit).slice(0, 1).map((g) => g.id); }
+  /* A new block carries on with the goals of the block before it. With nothing to carry on from it starts untagged, so the teacher chooses. */
+  if (MOVE_BY[a].pu !== 'N') { const prev = l.blocks[at - 1]; if (prev && prev.goals.length) b.goals = prev.goals.slice(); }
   App.sel.block = b.id;
 };
 ACT.delBlock = (a, c) => { const l = curLesson(c); l.blocks = l.blocks.filter((b) => b.id !== App.sel.block); App.sel.block = null; };
 ACT.dupBlock = (a, c) => { const l = curLesson(c), i = l.blocks.findIndex((b) => b.id === App.sel.block), n = clone(l.blocks[i]); n.id = newId(c, 'B'); l.blocks.splice(i + 1, 0, n); App.sel.block = n.id; };
 ACT.moveBlock = (a, c) => { const l = curLesson(c), i = l.blocks.findIndex((b) => b.id === App.sel.block), j = i + +a; if (j < 0 || j >= l.blocks.length) return; const t = l.blocks[i]; l.blocks[i] = l.blocks[j]; l.blocks[j] = t; };
-ACT.hwOn = (a, c) => { const l = curLesson(c); l.hw = newHomework(); l.hw.goals = unitGoals(c, l.unit).slice(0, 1).map((g) => g.id); };
+ACT.hwOn = (a, c) => { const l = curLesson(c); l.hw = newHomework(); const seen = []; l.blocks.forEach((b) => b.goals.forEach((g) => { if (!seen.includes(g)) seen.push(g); })); l.hw.goals = seen.slice(0, 2); };
 ACT.hwOff = (a, c) => { curLesson(c).hw = null; };
 ACT.play = (a, c) => { const l = curLesson(c), L = lessonLabel(c, l); if (App.play.t >= L.total - 0.05) App.play.t = 0; App.play.on = !App.play.on; roomSync(); return false; };
 

@@ -10,7 +10,7 @@
    observation ("worth a look", sev 1 or 0), never as a rule. The checks never call a teaching method bad in itself; the
    intent checks compare the plan with the teacher's own stated aims.
 
-   Grade formula. For each area, P = 10 per serious finding + 4 per "worth a look" + 1 per note, and N = 24 + 10 x (units
+   Grade formula. For each area, P = 10 per serious finding + 4 per "worth a look" + 1 per note, and N = 40 + 14 x (units
    with something built in them, at least 1). score = round(100 x N / (N + P)). One serious problem costs about 23
    points in a one-unit course and about 14 in a four-unit course, and the score never goes below zero. An area scores null (grade a dash) until enough exists
    to judge it. Letter: A 93+, A- 90, B+ 87, B 83, B- 80, C+ 77, C 73, C- 70, D 60, else F. */
@@ -305,7 +305,7 @@ function ckBuilt(c) {
 function gradeCourse(c, findings) {
   findings = findings || runChecks(c);
   const nU = c.units.filter((u) => c.lessons.some((l) => l.unit === u.id) || c.assess.some((a) => a.unit === u.id) || c.goals.some((g) => g.unit === u.id) || (u.days > 0)).length;
-  const N = 24 + 10 * Math.max(1, nU), planned = sum(c.lessons.map((l) => l.days || 1)), hwN = c.lessons.filter((l) => l.hw && l.hw.min > 0).length, budget = budgetedDays(c);
+  const N = 40 + 14 * Math.max(1, nU), planned = sum(c.lessons.map((l) => l.days || 1)), hwN = c.lessons.filter((l) => l.hw && l.hw.min > 0).length, budget = budgetedDays(c);
   /* Enough lessons exist to judge how the days run: 10 planned class days, or one unit of 5+ days fully planned. */
   const enough = planned >= 10 || c.units.some((u) => u.days >= 5 && plannedDays(c, u.id) >= u.days);
   const can = { alignment: c.goals.length >= 1, evidence: c.goals.length >= 1 && c.assess.length >= 1, feasibility: c.units.some((u) => u.days > 0),

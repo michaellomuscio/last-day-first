@@ -70,7 +70,7 @@ function migrate(c) {
   const Y = c.syllabus; for (const f of ['about', 'materials', 'contact', 'help', 'honesty']) Y[f] = str(Y[f]); for (const f of ['late', 'retake']) Y[f] = /^[a-z]{1,20}$/.test(Y[f]) ? Y[f] : d.syllabus[f];
   Y.weights = obj(Y.weights); for (const f of ['major', 'minor', 'homework', 'participation']) Y.weights[f] = int(Y.weights[f], 0, 100, d.syllabus.weights[f]);
   const G = c.game; G.seen = obj(G.seen); G.banners = obj(G.banners); if (G.base) G.base = obj(G.base);
-  c.snaps = c.snaps.slice(0, 8).map((s) => ({ name: str(s.name, 60), days: num(s.days, 0, 1e4, 0), active: num(s.active, 0, 1, 0), together: num(s.together, 0, 1, 0), high: num(s.high, 0, 1, 0), hw: num(s.hw, 0, 1e4, 0), serious: int(s.serious, 0, 1e4, 0), grades: arr(s.grades).map((g) => str(g, 3)).slice(0, 8) }));
+  c.snaps = c.snaps.slice(0, 8).map((s) => ({ name: str(s.name, 60), days: num(s.days, 0, 1e4, 0), active: num(s.active, 0, 1, 0), together: num(s.together, 0, 1, 0), high: num(s.high, 0, 1, 0), hw: num(s.hw, 0, 1e4, 0), serious: int(s.serious, 0, 1e4, 0), grades: arr(s.grades).map((g) => str(g, 3)).slice(0, 8), course: typeof s.course === 'string' && s.course.length < 1500000 ? s.course : '' }));
   /* New ids must never repeat an old one, whatever the file says its counter is. */
   let mx = 0; const bump = (id) => { const m = /(\d+)$/.exec(id); if (m) mx = Math.max(mx, +m[1]); }; all.forEach((x) => bump(x.id)); c.lessons.forEach((l) => l.blocks.forEach((b) => bump(b.id)));
   c.seq = Math.max(int(c.seq, 1, 1e9, 1), mx + 1);

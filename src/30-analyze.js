@@ -80,18 +80,21 @@ function shares(L) {
     show: L.show / t, fed: L.show > 0 ? L.fbNow / L.show : 0 };
 }
 
-/* Homework across a set of lessons: minutes a night, what it is for, who can do it. */
+/* Homework across a set of lessons: minutes a night, what it is for, who can do it. `nights` counts class days that set homework.
+   When the class does not meet every day, an assignment has more than one night before it is due (`gap`), so the per-night
+   figures (`max`, `avgNight`, `list`) spread its minutes across them; `total` and `maxSet` are the minutes as set. */
 function homeworkStats(c, lessons) {
-  const H = { nights: 0, days: 0, total: 0, max: 0, purpose: {}, kind: {}, fb: {}, graded: {}, device: 0, list: [] };
+  const gap = Math.max(1, Math.round(5 / (c.school.perWeek || 5)));
+  const H = { nights: 0, days: 0, total: 0, max: 0, maxSet: 0, gap, purpose: {}, kind: {}, fb: {}, graded: {}, device: 0, list: [] };
   for (const l of lessons) {
     const d = l.days || 1; H.days += d;
     if (!l.hw || !(l.hw.min > 0)) { for (let k = 0; k < d; k++) H.list.push(0); continue; }
-    const h = l.hw; H.nights += d; H.total += h.min * d; H.max = Math.max(H.max, h.min);
+    const h = l.hw; H.nights += d; H.total += h.min * d; H.max = Math.max(H.max, h.min / gap); H.maxSet = Math.max(H.maxSet, h.min);
     H.purpose[h.purpose] = (H.purpose[h.purpose] || 0) + h.min * d; H.kind[h.kind] = (H.kind[h.kind] || 0) + h.min * d; H.fb[h.fb] = (H.fb[h.fb] || 0) + h.min * d; H.graded[h.graded] = (H.graded[h.graded] || 0) + h.min * d;
     if (h.device) H.device += h.min * d;
-    for (let k = 0; k < d; k++) H.list.push(h.min);
+    for (let k = 0; k < d; k++) H.list.push(h.min / gap);
   }
-  H.avg = H.days ? H.total / H.days : 0; H.avgNight = H.nights ? H.total / H.nights : 0;
+  H.avg = H.days ? H.total / H.days : 0; H.avgNight = H.nights ? H.total / H.nights / gap : 0;
   return H;
 }
 

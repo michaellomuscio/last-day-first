@@ -106,7 +106,7 @@ input[type="range"] { accent-color: var(--red); width: 100% }
 .finding b { font-weight: 700; font-size: 13.5px }
 .finding span { font-size: 12.5px; color: var(--ink2) }
 .finding.s2 b::before { content: "\25CF "; color: var(--bad) } .finding.s1 b::before { content: "\25CF "; color: var(--warn) } .finding.s0 b::before { content: "\25CB "; color: var(--ink3) }
-.toasts { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; pointer-events: none }
+.toasts { position: fixed; left: 50%; top: 104px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; pointer-events: none }
 .toast { padding: 9px 16px; background: var(--ink); color: #fff; border-radius: var(--r); font-weight: 600; box-shadow: var(--shadow); animation: rise .2s ease-out }
 .scrim { position: fixed; inset: 0; background: rgba(23, 23, 27, .55); display: grid; place-items: center; z-index: 40; padding: 16px }
 .modal { width: min(720px, 100%); max-height: 100%; overflow-y: auto; background: var(--card); border: 2.5px solid var(--line2); border-radius: var(--r); box-shadow: 8px 8px 0 var(--ink); padding: 22px 24px; display: grid; gap: 14px }

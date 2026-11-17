@@ -125,7 +125,7 @@ input[type="range"] { accent-color: var(--red); width: 100% }
 .finding b { font-weight: 700; font-size: 13.5px }
 .finding span { font-size: 12.5px; color: var(--ink2) }
 .finding.s2 b::before { content: "\25CF "; color: var(--bad) } .finding.s1 b::before { content: "\25CF "; color: var(--warn) } .finding.s0 b::before { content: "\25CB "; color: var(--ink3) }
-.toasts { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; pointer-events: none }
+.toasts { position: fixed; left: 50%; top: 104px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 50; pointer-events: none }
 .toast { padding: 9px 16px; background: var(--ink); color: #fff; border-radius: var(--r); font-weight: 600; box-shadow: var(--shadow); animation: rise .2s ease-out }
 .scrim { position: fixed; inset: 0; background: rgba(23, 23, 27, .55); display: grid; place-items: center; z-index: 40; padding: 16px }
 .modal { width: min(720px, 100%); max-height: 100%; overflow-y: auto; background: var(--card); border: 2.5px solid var(--line2); border-radius: var(--r); box-shadow: 8px 8px 0 var(--ink); padding: 22px 24px; display: grid; gap: 14px }
@@ -204,7 +204,6 @@ input[type="range"] { accent-color: var(--red); width: 100% }
 .blk.over { background: repeating-linear-gradient(135deg, #cfc8b8 0 6px, #e9e2d3 6px 12px); padding: 0 }
 .blk.spare { background: repeating-linear-gradient(90deg, transparent 0 7px, var(--line) 7px 8px); border-right: 0; padding: 0 }
 .bell { position: absolute; top: -9px; bottom: -9px; width: 0; border-left: 3px dashed var(--red); pointer-events: none }
-.bell i { position: absolute; top: -13px; left: -14px; font: 800 10px var(--f-ui); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--red) }
 .head { position: absolute; top: -6px; bottom: -6px; width: 3px; background: var(--ink); left: 0; pointer-events: none; box-shadow: 0 0 0 2px var(--hi) }
 .ruler { position: relative; height: 16px; margin-top: 3px }
 .ruler span { position: absolute; transform: translateX(-50%); font: 600 10.5px var(--f-ui); color: var(--ink3); font-variant-numeric: tabular-nums }
@@ -930,7 +929,7 @@ function migrate(c) {
   const Y = c.syllabus; for (const f of ['about', 'materials', 'contact', 'help', 'honesty']) Y[f] = str(Y[f]); for (const f of ['late', 'retake']) Y[f] = /^[a-z]{1,20}$/.test(Y[f]) ? Y[f] : d.syllabus[f];
   Y.weights = obj(Y.weights); for (const f of ['major', 'minor', 'homework', 'participation']) Y.weights[f] = int(Y.weights[f], 0, 100, d.syllabus.weights[f]);
   const G = c.game; G.seen = obj(G.seen); G.banners = obj(G.banners); if (G.base) G.base = obj(G.base);
-  c.snaps = c.snaps.slice(0, 8).map((s) => ({ name: str(s.name, 60), days: num(s.days, 0, 1e4, 0), active: num(s.active, 0, 1, 0), together: num(s.together, 0, 1, 0), high: num(s.high, 0, 1, 0), hw: num(s.hw, 0, 1e4, 0), serious: int(s.serious, 0, 1e4, 0), grades: arr(s.grades).map((g) => str(g, 3)).slice(0, 8) }));
+  c.snaps = c.snaps.slice(0, 8).map((s) => ({ name: str(s.name, 60), days: num(s.days, 0, 1e4, 0), active: num(s.active, 0, 1, 0), together: num(s.together, 0, 1, 0), high: num(s.high, 0, 1, 0), hw: num(s.hw, 0, 1e4, 0), serious: int(s.serious, 0, 1e4, 0), grades: arr(s.grades).map((g) => str(g, 3)).slice(0, 8), course: typeof s.course === 'string' && s.course.length < 1500000 ? s.course : '' }));
   /* New ids must never repeat an old one, whatever the file says its counter is. */
   let mx = 0; const bump = (id) => { const m = /(\d+)$/.exec(id); if (m) mx = Math.max(mx, +m[1]); }; all.forEach((x) => bump(x.id)); c.lessons.forEach((l) => l.blocks.forEach((b) => bump(b.id)));
   c.seq = Math.max(int(c.seq, 1, 1e9, 1), mx + 1);
@@ -1173,18 +1172,21 @@ function shares(L) {
     show: L.show / t, fed: L.show > 0 ? L.fbNow / L.show : 0 };
 }
 
-/* Homework across a set of lessons: minutes a night, what it is for, who can do it. */
+/* Homework across a set of lessons: minutes a night, what it is for, who can do it. `nights` counts class days that set homework.
+   When the class does not meet every day, an assignment has more than one night before it is due (`gap`), so the per-night
+   figures (`max`, `avgNight`, `list`) spread its minutes across them; `total` and `maxSet` are the minutes as set. */
 function homeworkStats(c, lessons) {
-  const H = { nights: 0, days: 0, total: 0, max: 0, purpose: {}, kind: {}, fb: {}, graded: {}, device: 0, list: [] };
+  const gap = Math.max(1, Math.round(5 / (c.school.perWeek || 5)));
+  const H = { nights: 0, days: 0, total: 0, max: 0, maxSet: 0, gap, purpose: {}, kind: {}, fb: {}, graded: {}, device: 0, list: [] };
   for (const l of lessons) {
     const d = l.days || 1; H.days += d;
     if (!l.hw || !(l.hw.min > 0)) { for (let k = 0; k < d; k++) H.list.push(0); continue; }
-    const h = l.hw; H.nights += d; H.total += h.min * d; H.max = Math.max(H.max, h.min);
+    const h = l.hw; H.nights += d; H.total += h.min * d; H.max = Math.max(H.max, h.min / gap); H.maxSet = Math.max(H.maxSet, h.min);
     H.purpose[h.purpose] = (H.purpose[h.purpose] || 0) + h.min * d; H.kind[h.kind] = (H.kind[h.kind] || 0) + h.min * d; H.fb[h.fb] = (H.fb[h.fb] || 0) + h.min * d; H.graded[h.graded] = (H.graded[h.graded] || 0) + h.min * d;
     if (h.device) H.device += h.min * d;
-    for (let k = 0; k < d; k++) H.list.push(h.min);
+    for (let k = 0; k < d; k++) H.list.push(h.min / gap);
   }
-  H.avg = H.days ? H.total / H.days : 0; H.avgNight = H.nights ? H.total / H.nights : 0;
+  H.avg = H.days ? H.total / H.days : 0; H.avgNight = H.nights ? H.total / H.nights / gap : 0;
   return H;
 }
 
@@ -1262,7 +1264,7 @@ function labelHTML(L, o) {
   if (L.orphan > 0.5) h += line('Learning time tied to no goal', '<b>' + f1(avg(L.orphan)) + ' min</b>', 'warn');
   if (L.hw) {
     h += '<div class="lf-bar mid"></div><div class="lf-head"><span>Homework</span><span></span><span></span></div>';
-    h += L.hw.nights ? line('Set on', '<b>' + L.hw.nights + ' of ' + L.hw.days + ' nights</b>') + line('On those nights', '<b>' + f1(L.hw.avgNight) + ' min</b> <i>longest ' + f1(L.hw.max) + '</i>') +
+    h += L.hw.nights ? line('Set after', '<b>' + L.hw.nights + ' of ' + plural(L.hw.days, 'class day') + '</b>') + line(L.hw.gap > 1 ? 'A night, spread over the ' + L.hw.gap + ' nights before the next class' : 'On those nights', '<b>' + f1(L.hw.avgNight) + ' min</b> <i>longest ' + f1(L.hw.max) + '</i>') +
       '<div class="lf-note"><b>What it is for</b> ' + split(L.hw.purpose, HW_PURPOSES) + '</div>' + line('Needs a device or internet', '<b>' + pc(L.hw.device / (L.hw.total || 1)) + '</b>') : '<div class="lf-note">None set.</div>';
   }
   if (c) {
@@ -1287,7 +1289,7 @@ function labelHTML(L, o) {
    observation ("worth a look", sev 1 or 0), never as a rule. The checks never call a teaching method bad in itself; the
    intent checks compare the plan with the teacher's own stated aims.
 
-   Grade formula. For each area, P = 10 per serious finding + 4 per "worth a look" + 1 per note, and N = 24 + 10 x (units
+   Grade formula. For each area, P = 10 per serious finding + 4 per "worth a look" + 1 per note, and N = 40 + 14 x (units
    with something built in them, at least 1). score = round(100 x N / (N + P)). One serious problem costs about 23
    points in a one-unit course and about 14 in a four-unit course, and the score never goes below zero. An area scores null (grade a dash) until enough exists
    to judge it. Letter: A 93+, A- 90, B+ 87, B 83, B- 80, C+ 77, C 73, C- 70, D 60, else F. */
@@ -1582,7 +1584,7 @@ function ckBuilt(c) {
 function gradeCourse(c, findings) {
   findings = findings || runChecks(c);
   const nU = c.units.filter((u) => c.lessons.some((l) => l.unit === u.id) || c.assess.some((a) => a.unit === u.id) || c.goals.some((g) => g.unit === u.id) || (u.days > 0)).length;
-  const N = 24 + 10 * Math.max(1, nU), planned = sum(c.lessons.map((l) => l.days || 1)), hwN = c.lessons.filter((l) => l.hw && l.hw.min > 0).length, budget = budgetedDays(c);
+  const N = 40 + 14 * Math.max(1, nU), planned = sum(c.lessons.map((l) => l.days || 1)), hwN = c.lessons.filter((l) => l.hw && l.hw.min > 0).length, budget = budgetedDays(c);
   /* Enough lessons exist to judge how the days run: 10 planned class days, or one unit of 5+ days fully planned. */
   const enough = planned >= 10 || c.units.some((u) => u.days >= 5 && plannedDays(c, u.id) >= u.days);
   const can = { alignment: c.goals.length >= 1, evidence: c.goals.length >= 1 && c.assess.length >= 1, feasibility: c.units.some((u) => u.days > 0),
@@ -3843,7 +3845,7 @@ function renderTop() {
   $('top').innerHTML = '<button class="word" data-act="go" data-arg="start" title="Home">Last Day <i>First</i></button>' +
     (c && c.warm ? '<span class="grow"></span><button class="btn sm" data-act="go" data-arg="start">Leave the warm-up</button>' : c ? '<input class="title" data-bind="course::title" value="' + esc(c.title) + '" aria-label="Course title"><button class="btn sm" data-act="glossary" title="What the words on these pages mean">Words</button><button class="btn sm" data-act="saveFile" title="Download this course as a file you can reopen or hand to a mentor">Save file</button><button class="btn sm" data-act="go" data-arg="report">Report</button>' : '<span class="grow"></span>');
   const cnt = {}; App.findings.forEach((f) => { if (f.sev >= 2 && f.where) cnt[f.where.view] = (cnt[f.where.view] || 0) + 1; });
-  $('nav').hidden = !c || !!c.warm;
+  $('nav').hidden = !c || !!c.warm || App.view === 'start';
   $('nav').innerHTML = c ? CHAPTERS.map((ch, k) => '<button data-act="go" data-arg="' + ch[0] + '" class="' + chapterState(c, ch[0]) + '"' + (App.view === ch[0] ? ' aria-current="page"' : '') + ' title="' + ch[2] + (chapterState(c, ch[0]) === 'done' ? ' (done)' : '') + '"><span class="n">' + (chapterState(c, ch[0]) === 'done' ? '✓' : k + 1) + '</span>' + ch[1] + (cnt[ch[0]] && App.view !== ch[0] ? '<span class="cnt" aria-label="' + cnt[ch[0]] + ' to fix">' + cnt[ch[0]] + '</span>' : '') + '</button>').join('') : '';
 }
 function sideHTML() {
@@ -3974,7 +3976,7 @@ VIEWS.start = {
       '<div class="row wrap">' + (saved ? '<button class="btn pri" data-act="resume">Continue “' + esc(short(saved.title, 34)) + '”</button>' : '') + '<button class="btn" data-act="warmup">Try the five-minute warm-up</button><button class="btn" data-act="openFile">Open a course file</button><button class="btn ghost" data-act="tryDemo">Look around a sample course</button></div></div>' +
       '<div class="panel"><h2>Start a new course <small>You can change any of this later.</small></h2>' +
       '<div class="stack"><span class="lbl">What do you teach?</span><div class="chips">' + SUBJECTS.map((x) => '<button class="chip" data-act="suSet" data-arg="subject=' + x[0] + '" aria-pressed="' + (s.subject === x[0]) + '">' + x[1] + '</button>').join('') + '</div></div>' +
-      '<div class="grid2"><div class="stack"><label class="lbl" for="su-title">Course name</label><input class="field" id="su-title" data-su="title" value="' + esc(s.title) + '" placeholder="' + esc(kit ? kit.course : 'For example, Chemistry') + '"></div>' +
+      '<div class="grid2"><div class="stack"><label class="lbl" for="su-title">Course name</label><input class="field" id="su-title" data-su="title" value="' + esc(s.title) + '" placeholder="' + esc(kit && s.kit ? kit.course : 'For example, Chemistry') + '"></div>' +
       '<div class="stack"><span class="lbl">Starting point</span>' + (kit ? '<span class="seg"><button data-act="suSet" data-arg="kit=true" aria-pressed="' + !!s.kit + '">' + esc(kit.course) + ' starter kit</button><button data-act="suSet" data-arg="kit=false" aria-pressed="' + !s.kit + '">A blank page</button></span><span class="hint">' + (s.kit ? esc(kit.blurb) + ' Everything in it is yours to rewrite.' : 'You write every goal and unit yourself.') + '</span>' : '<span class="hint">No starter kit for this subject, so you start from a blank page.</span>') + '</div></div>' +
       '<div class="grid3"><div class="stack"><span class="lbl">A class period lasts</span><span class="seg">' + [40, 45, 50, 55, 60, 75, 80, 90].map((m) => '<button data-act="suSet" data-arg="period=' + m + '" aria-pressed="' + (s.period === m) + '">' + m + '</button>').join('') + '</span><span class="hint">minutes</span></div>' +
       '<div class="stack"><span class="lbl">The class meets</span><span class="seg">' + [[5, 'Every day'], [2.5, 'Every other day'], [4, '4 a week'], [3, '3 a week']].map((m) => '<button data-act="suSet" data-arg="perWeek=' + m[0] + '" aria-pressed="' + (s.perWeek === m[0]) + '">' + m[1] + '</button>').join('') + '</span></div>' +
@@ -4013,6 +4015,8 @@ const DEFAULT_MIN = { entry: 3, announce: 2, break: 2, cleanup: 2, directions: 3
   guided: 10, indep: 12, partner: 10, drill: 6, game: 15, sread: 10, closeread: 12, write: 20, lab: 30, task: 20, studio: 25, projwork: 30, research: 20, peer: 10, gallery: 10, present: 20, perform: 15, test: 40, ptask: 40,
   confer: 15, goover: 8, seminar: 25, debate: 25, simulate: 20, stations: 24, skillp: 15, readaloud: 8 };
 const famColor = (mix) => FAMILY_BY[dominantFam(mix)].color;
+/* Minutes written the same way everywhere: whole when whole, one decimal otherwise. */
+const fmtMin = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
 
 function curUnit(c) { let u = unitOf(c, App.sel.unit); if (!u) { u = c.units[0] || null; App.sel.unit = u ? u.id : null; } return u; }
 function curLesson(c) { const u = curUnit(c); if (!u) return null; const ls = unitLessons(c, u.id); let l = ls.find((x) => x.id === App.sel.lesson); if (!l) { l = ls[0] || null; App.sel.lesson = l ? l.id : null; App.sel.block = null; } return l; }
@@ -4025,7 +4029,7 @@ function stripHTML(c, l, L) {
     else { const b = l.blocks[s.i], F = FAMILY_BY[dominantFam(s.mix)]; h += '<button class="blk' + (App.sel.block === b.id ? ' sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '" aria-pressed="' + (App.sel.block === b.id) + '" aria-label="' + esc(s.e.move.name + ', ' + b.min + ' minutes, mostly ' + F.name.toLowerCase()) + '" style="width:' + w(b.min) + ';background:' + F.color + ';color:' + F.text + '" title="' + esc(s.e.move.name + ', ' + b.min + ' min') + '"><b>' + esc(s.e.move.name) + '</b><i>' + b.min + '</i></button>'; }
   }
   if (L.total < L.period) h += '<span class="blk spare" style="width:' + w(L.period - L.total) + '" title="Unplanned time"></span>';
-  h += '<span class="bell" style="left:' + w(L.period) + '" title="The bell"><i>bell</i></span><span class="head" id="playhead"></span></div><div class="ruler">';
+  h += '<span class="bell" style="left:' + w(L.period) + '" title="The bell, at ' + L.period + ' minutes"></span><span class="head" id="playhead"></span></div><div class="ruler">';
   const stepMin = span > 70 ? 10 : 5; for (let m = 0; m <= span; m += stepMin) h += '<span style="left:' + w(m) + '">' + m + '</span>';
   /* The same blocks as a plain list: easier to tap on a phone and to read aloud. Shown only on narrow screens. */
   h += '</div><ol class="blocklist">' + L.segs.filter((s) => !s.over).map((s) => { const b = l.blocks[s.i]; return '<li><button class="' + (App.sel.block === b.id ? 'sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '"><i class="dot" style="background:' + famColor(s.mix) + '"></i><span>' + esc(s.e.move.name) + '</span><b>' + b.min + ' min</b></button></li>'; }).join('') + '</ol>';
@@ -4040,11 +4044,11 @@ function blockInspector(c, l, b) {
     '<p class="hint">' + esc(m.does) + '</p>' +
     '<div class="row wrap"><span class="lbl">Minutes</span>' + stepper('block:' + p + ':min', b.min, 1, 240, 1) + '<span class="row">' + [-5, 5].map((d) => '<button class="btn sm" data-act="nudge" data-arg="block:' + p + ':min=' + d + '=1=240">' + (d > 0 ? '+' : '−') + '5</button>').join('') + '</span></div>' +
     (m.sw || []).map((s) => '<div class="stack"><span class="lbl">' + esc(s.label) + '</span>' + seg('sw:' + p + ':' + s.id, s.opts.map((o) => [o.id, o.label]), (b.sw && b.sw[s.id]) || s.opts[0].id) + '</div>').join('') +
-    (m.pu === 'N' && !b.pu ? '' : '<div class="stack"><span class="lbl">Which goals is this for?</span>' + goalPicker('block:' + p + ':goals', goals.concat(others), b.goals) + '</div>') +
-    '<details' + (b.pu || b.lv || b.note || b.assess ? ' open' : '') + '><summary>Fine-tune how this block is described</summary><div class="stack" style="padding-top:10px">' +
+    (m.pu === 'N' && !b.pu ? '' : '<div class="stack"><span class="lbl">Which goals is this for?' + (b.goals.length ? '' : ' <span class="tag warn">none chosen yet</span>') + '</span>' + goalPicker('block:' + p + ':goals', goals.concat(others), b.goals) + '</div>') +
+    (m.grp === 'show' && as.length ? '<div class="stack"><span class="lbl">Is this the class time for one of your assessments?</span>' + pick('block:' + p + ':assess', [['', 'No, it stands alone']].concat(as.map((a) => [a.id, (a.kind === 'major' ? 'Major: ' : 'Check: ') + a.title])), b.assess || '', 'aria-label="Assessment this block is the class time for"') + (() => { const a = assessOf(c, b.assess); if (!a) return ''; const have = sum(c.lessons.map((x) => sum(x.blocks.filter((k) => k.assess === a.id).map((k) => k.min)) * (x.days || 1))); return a.min > have + 2 ? '<span class="hint"><span class="tag warn">short</span> \u201c' + esc(short(a.title, 40)) + '\u201d is set to need ' + a.min + ' minutes in class. Blocks tied to it add up to ' + have + '.</span>' : ''; })() + '</div>' : '') +
+    '<details' + (b.pu || b.lv || b.note ? ' open' : '') + '><summary>Fine-tune how this block is described</summary><div class="stack" style="padding-top:10px">' +
     '<div class="stack"><span class="lbl">Purpose <span class="hint" style="text-transform:none;letter-spacing:0">usually ' + optName(PURPOSES, m.pu).toLowerCase() + '</span></span>' + seg('block:' + p + ':pu', [['null', 'As usual']].concat(PURPOSES.filter((x) => x[0] !== 'N').map((x) => [x[0], x[1], x[2]])), b.pu || 'null') + '</div>' +
     '<div class="stack"><span class="lbl">Thinking level <span class="hint" style="text-transform:none;letter-spacing:0">usually ' + LEVEL_NAME[e.move.lv].toLowerCase() + '</span></span>' + seg('block:' + p + ':lv', [['null', 'As usual']].concat(LEVELS.map((x) => [x[0], x[1], x[2]])), b.lv || 'null') + '</div>' +
-    (m.grp === 'show' && as.length ? '<div class="stack"><span class="lbl">This is the class time for</span>' + pick('block:' + p + ':assess', [['', 'No particular assessment']].concat(as.map((a) => [a.id, a.title])), b.assess || '') + '</div>' : '') +
     '<div class="stack"><span class="lbl">Your notes</span>' + area('block:' + p + ':note', b.note || '', 'placeholder="What you will say, show or hand out"') + '</div></div></details></div>';
 }
 function homeworkHTML(c, l) {
@@ -4067,12 +4071,12 @@ VIEWS.lessons = {
     if (!u) return '<div class="ws"><div class="ws-head"><div class="eyebrow">Chapter 5</div><h1>Lessons</h1></div>' + empty('A lesson belongs to a unit. Lay out your units first.', '<button class="btn pri" data-act="go" data-arg="sequence">Go to Sequence</button>') + '</div>';
     const ls = unitLessons(c, u.id), l = curLesson(c), used = plannedDays(c, u.id);
     const list = '<div class="lessons-list"><h1 class="sr">Lessons in ' + esc(u.title) + '</h1><div class="stack"><span class="lbl">Unit</span>' + pick('ui::unit', c.units.map((x, k) => [x.id, (k + 1) + '. ' + x.title]), u.id, 'aria-label="Unit"') + '<span class="hint" data-live="days"><b class="num">' + used + '</b> of ' + u.days + ' days planned' + (used > u.days ? ' <span class="tag bad">over</span>' : '') + '</span></div>' +
-      '<div class="stack" data-live="list">' + ls.map((x, k) => { const L = lessonLabel(c, x); return '<button class="card lcard' + (l && x.id === l.id ? ' sel' : '') + '" data-act="selLesson" data-arg="' + x.id + '"><span class="row between"><b>' + (k + 1) + '. ' + esc(short(x.title, 30)) + '</b>' + (x.days > 1 ? tag(x.days + ' days') : '') + '</span>' + miniStrip(c, x) + '<span class="row between hint"><span>' + Math.round(L.total) + ' min' + (L.over > 0.5 ? ' <span class="tag bad">' + Math.round(L.over) + ' over</span>' : '') + '</span><span>' + (x.hw ? 'HW ' + x.hw.min + ' min' : '') + '</span></span></button>'; }).join('') + '</div>' +
+      '<div class="stack" data-live="list">' + ls.map((x, k) => { const L = lessonLabel(c, x); return '<button class="card lcard' + (l && x.id === l.id ? ' sel' : '') + '" data-act="selLesson" data-arg="' + x.id + '"><span class="row between"><b>' + (k + 1) + '. ' + esc(short(x.title, 30)) + '</b>' + (x.days > 1 ? tag(x.days + ' days') : '') + '</span>' + miniStrip(c, x) + '<span class="row between hint"><span>' + fmtMin(L.total) + ' min' + (L.over > 0.5 ? ' <span class="tag bad">' + fmtMin(L.over) + ' over</span>' : '') + '</span><span>' + (x.hw ? 'HW ' + x.hw.min + ' min' : '') + '</span></span></button>'; }).join('') + '</div>' +
       '<button class="btn' + (ls.length ? ' sm' : ' pri') + '" data-act="lessonChooser">+ Add a lesson</button></div>';
     if (!l) return '<div class="ws lessons"><div class="lgrid">' + list + '<div class="stack">' + '<div class="ws-head"><div class="eyebrow">Chapter 5 · ' + esc(u.title) + '</div><h1>Plan the days</h1><p>You know where this unit ends and how you will know students got there. Now build the class periods that get them there. Start with a ready-made shape and change it, or start blank.</p></div>' + mentor(MENTOR.lessons(c)) + '</div></div></div>';
     const L = lessonLabel(c, l), b = byId(l.blocks, App.sel.block), k = ls.indexOf(l);
     const editor = '<div class="stack editor"><div class="row"><input class="field big grow" data-bind="lesson:' + l.id + ':title" value="' + esc(l.title) + '" aria-label="Lesson title"><span class="lbl">Days</span>' + stepper('lesson:' + l.id + ':days', l.days, 1, 20, 1) + '</div>' +
-      '<div class="row wrap"><button class="btn sm ghost" data-act="moveLesson" data-arg="-1" ' + (k === 0 ? 'disabled' : '') + '>↑ Earlier</button><button class="btn sm ghost" data-act="moveLesson" data-arg="1" ' + (k === ls.length - 1 ? 'disabled' : '') + '>↓ Later</button><button class="btn sm ghost" data-act="dupLesson">Copy this lesson</button><button class="btn sm ghost danger" data-act="delLesson">Delete</button><span class="grow"></span><span class="hint" data-live="fit">' + (L.over > 0.5 ? '<span class="tag bad">Runs ' + Math.round(L.over) + ' min past the bell</span>' : L.total ? '<span class="tag good">Fits, ' + Math.round(-L.over) + ' min spare</span>' : '') + '</span></div>' +
+      '<div class="row wrap"><button class="btn sm ghost" data-act="moveLesson" data-arg="-1" ' + (k === 0 ? 'disabled' : '') + '>↑ Earlier</button><button class="btn sm ghost" data-act="moveLesson" data-arg="1" ' + (k === ls.length - 1 ? 'disabled' : '') + '>↓ Later</button><button class="btn sm ghost" data-act="dupLesson">Copy this lesson</button><button class="btn sm ghost danger" data-act="delLesson">Delete</button><span class="grow"></span><span class="hint" data-live="fit">' + (L.over > 0.5 ? '<span class="tag bad">Runs ' + fmtMin(L.over) + ' min past the bell</span>' : L.total ? '<span class="tag good">Fits, ' + fmtMin(-L.over) + ' min spare</span>' : '') + '</span></div>' +
       '<div data-live="strip">' + stripHTML(c, l, L) + '</div>' + (l.blocks.length ? '' : '<p class="hint">Pick blocks below to fill the period. Hatched grey is time for settling, moving and packing up that the plan did not include.</p>') +
       (b ? blockInspector(c, l, b) : l.blocks.length ? '<p class="hint">Click a block on the strip to change it.</p>' : '') + paletteHTML() + homeworkHTML(c, l) +
       '<div class="panel"><h2>Materials and notes <small>Printed on the lesson plan</small></h2>' + area('lesson:' + l.id + ':note', l.note || '', 'placeholder="What to have ready, the text or problem set, where the handouts are"') + '</div></div>';
@@ -4093,7 +4097,7 @@ MENTOR.lessons = (c) => {
   const L = lessonLabel(c, l), S = shares(L);
   if (!l.blocks.length) return ['Ask first: what will students be doing at minute ten? Then at minute thirty?'];
   if (L.over > 0.5) out.push('This runs past the bell. Something has to go. Decide now, at your desk, not at minute 48.');
-  if (L.orphan > 3) out.push('Some of this time is tied to no goal. If you cannot say what it is for, students cannot either.');
+  if (L.orphan > 3) out.push('Some blocks are tied to no goal yet. Click one and choose what it is for. If you cannot say, students cannot either.');
   if (L.stretch.min >= 25 && L.stretch.fam === 'take') out.push(Math.round(L.stretch.min) + ' minutes of listening in one stretch. It can work. Would a question to a partner in the middle cost you anything?');
   if (L.show < 2 && L.learn > 20) out.push('Nobody shows you what they know today. How will you find out who is lost before tomorrow?');
   if (!out.length && S.active >= c.intent.active / 100) out.push('This matches what you said you wanted. Press play and watch it once before you move on.');
@@ -4106,8 +4110,6 @@ ACT.selBlock = (a, c) => { App.sel.block = App.sel.block === a ? null : a; const
 ACT.lessonChooser = () => { openModal('<h2>Add a lesson</h2><p class="hint">Start from a shape you recognise and change it, or start with an empty period. Every block can be changed afterwards.</p><div class="shapes"><button class="card" data-act="addLesson" data-arg=""><b>Blank lesson</b><span class="hint">An empty period.</span></button>' + PATTERNS.map((p) => '<button class="card" data-act="addLesson" data-arg="' + p.id + '"><b>' + p.name + '</b><span class="hint">' + p.does + '</span></button>').join('') + '</div><div class="foot"><button class="btn" data-act="closeModal">Cancel</button></div>'); return false; };
 ACT.addLesson = (a, c) => {
   const u = curUnit(c), n = unitLessons(c, u.id).length, l = addLesson(c, u.id, { title: 'Lesson ' + (n + 1) }); if (a) applyPattern(c, l, a);
-  /* Blocks from a shape start out tied to the unit's first goal, so nothing is orphaned before the teacher has looked. */
-  const g = unitGoals(c, u.id)[0]; if (g) l.blocks.forEach((b) => { if (MOVE_BY[b.move].pu !== 'N') b.goals = [g.id]; });
   App.sel.lesson = l.id; App.sel.block = null; App.play.t = 0; closeModal();
 };
 ACT.dupLesson = (a, c) => { const l = curLesson(c), n = clone(l); n.id = newId(c, 'L'); n.title = l.title + ' (copy)'; n.blocks.forEach((b) => (b.id = newId(c, 'B'))); c.lessons.splice(c.lessons.indexOf(l) + 1, 0, n); App.sel.lesson = n.id; App.sel.block = null; };
@@ -4118,13 +4120,14 @@ ACT.addMove = (a, c) => {
   const at = App.sel.block ? l.blocks.findIndex((b) => b.id === App.sel.block) + 1 : l.blocks.length, L = lessonLabel(c, l);
   let m = DEFAULT_MIN[a] || 10; if (a === 'test' || a === 'ptask') m = Math.max(10, c.school.period - 8);
   const b = addBlock(c, l, a, m, at);
-  if (MOVE_BY[a].pu !== 'N') { const prev = l.blocks[at - 1]; b.goals = prev && prev.goals.length ? prev.goals.slice() : unitGoals(c, l.unit).slice(0, 1).map((g) => g.id); }
+  /* A new block carries on with the goals of the block before it. With nothing to carry on from it starts untagged, so the teacher chooses. */
+  if (MOVE_BY[a].pu !== 'N') { const prev = l.blocks[at - 1]; if (prev && prev.goals.length) b.goals = prev.goals.slice(); }
   App.sel.block = b.id;
 };
 ACT.delBlock = (a, c) => { const l = curLesson(c); l.blocks = l.blocks.filter((b) => b.id !== App.sel.block); App.sel.block = null; };
 ACT.dupBlock = (a, c) => { const l = curLesson(c), i = l.blocks.findIndex((b) => b.id === App.sel.block), n = clone(l.blocks[i]); n.id = newId(c, 'B'); l.blocks.splice(i + 1, 0, n); App.sel.block = n.id; };
 ACT.moveBlock = (a, c) => { const l = curLesson(c), i = l.blocks.findIndex((b) => b.id === App.sel.block), j = i + +a; if (j < 0 || j >= l.blocks.length) return; const t = l.blocks[i]; l.blocks[i] = l.blocks[j]; l.blocks[j] = t; };
-ACT.hwOn = (a, c) => { const l = curLesson(c); l.hw = newHomework(); l.hw.goals = unitGoals(c, l.unit).slice(0, 1).map((g) => g.id); };
+ACT.hwOn = (a, c) => { const l = curLesson(c); l.hw = newHomework(); const seen = []; l.blocks.forEach((b) => b.goals.forEach((g) => { if (!seen.includes(g)) seen.push(g); })); l.hw.goals = seen.slice(0, 2); };
 ACT.hwOff = (a, c) => { curLesson(c).hw = null; };
 ACT.play = (a, c) => { const l = curLesson(c), L = lessonLabel(c, l); if (App.play.t >= L.total - 0.05) App.play.t = 0; App.play.on = !App.play.on; roomSync(); return false; };
 
@@ -4372,7 +4375,7 @@ VIEWS.goals = {
       '<div class="gl-narrow">' + mentor(MENTOR.goals(c)) + '</div>' +
       '<section class="panel gl-aim"><label class="gl-aimh" for="gl-aim">The aim of the course</label><p class="hint">Finish this sentence in your own words. Keep it to what a student could do alone, long after your class.</p>' +
       '<div class="gl-lead">Years from now, on their own, students should be able to…</div>' +
-      '<textarea class="area" id="gl-aim" data-bind="course::transfer" rows="3" placeholder="…explain how living things work, and weigh a health claim against the evidence for it.">' + esc(c.transfer) + '</textarea></section>' +
+      '<textarea class="area" id="gl-aim" data-bind="course::transfer" rows="3" placeholder="…read a hard text closely and say what they think about it and why. (Write yours for your own subject.)">' + esc(c.transfer) + '</textarea></section>' +
       '<div class="row between wrap"><div class="stack" style="gap:2px"><h2 class="gl-h2">Goals, by how much they matter</h2><p class="hint">A goal is one thing students should know, be able to do, or understand. The Lasting column should be short.</p></div>' +
       '<button class="btn" data-act="goalPractice">Practise: fact, skill or big idea?</button></div>' +
       goalsColumns(c) +
@@ -4473,7 +4476,7 @@ function seqUnitCard(c, u, k) {
   return '<section class="sq-unit" id="sq-' + u.id + '"><div class="sq-uhead"><span class="sq-n" aria-hidden="true">' + (k + 1) + '</span>' +
     '<input class="field big grow" data-bind="' + p + 'title" value="' + esc(u.title) + '" aria-label="Unit ' + (k + 1) + ' title"><div class="sq-days"><span class="lbl">Days</span>' + a11yStep('Days in unit ' + (k + 1), p + 'days', u.days || 0, 1, 150, 1) + '</div>' +
     '<div class="sq-tools"><button class="btn sm ghost" data-act="seqMove" data-arg="' + u.id + '=-1"' + (k === 0 ? ' disabled' : '') + ' aria-label="Move this unit earlier">↑ Earlier</button><button class="btn sm ghost" data-act="seqMove" data-arg="' + u.id + '=1"' + (k === c.units.length - 1 ? ' disabled' : '') + ' aria-label="Move this unit later">↓ Later</button><button class="btn sm ghost danger" data-act="seqDel" data-arg="' + u.id + '" aria-label="Delete unit ' + (k + 1) + '">Delete</button></div></div>' +
-    '<div class="sq-body"><div class="stack"><h3 class="sec-h">Questions that drive this unit</h3><p class="hint">Open questions worth arguing about, with no single right answer. For example: is a virus alive?</p>' + qs +
+    '<div class="sq-body"><div class="stack"><h3 class="sec-h">Questions that drive this unit</h3><p class="hint">Open questions worth arguing about, with no single right answer. For example: can you trust the person telling the story?</p>' + qs +
     '<div><button class="btn sm" data-act="seqQAdd" data-arg="' + u.id + '">+ Add a question</button></div></div>' +
     '<div class="stack"><h3 class="sec-h">Goals in this unit ' + (hasLast || !mine.length ? '' : '<span class="tag warn">No lasting goal</span>') + '</h3>' + (mine.length ? groups : '<p class="hint">No goals placed here yet.</p>') + place + '</div></div>' +
     '<div class="sq-src"><div class="stack"><span class="lbl" id="sq-srcl-' + u.id + '">Where the materials come from</span>' + a11yGroup('sq-srcl-' + u.id, seg(p + 'source', SOURCES.map((s) => [s[0], s[1], s[3]]), u.source)) + '<p class="hint"><b>' + esc(src[1]) + '.</b> ' + esc(src[3]) + '</p>' +
@@ -4769,8 +4772,8 @@ function hwvSplit(title, table, data, colors, total) {
 function hwvSummary(c, scope, H) {
   if (!H.days) return '<p class="hint">There are no planned lessons here yet, so there is nothing to add up.</p>';
   const limit = c.intent && c.intent.hw > 0 ? c.intent.hw : 0;
-  return '<div class="hwv-figs"><div class="hwv-fig"><b>' + H.nights + '<small> of ' + H.days + '</small></b><span>nights have homework</span></div>' +
-    '<div class="hwv-fig"><b>' + Math.round(H.avgNight) + '<small> min</small></b><span>on a typical night with homework</span></div>' +
+  return '<div class="hwv-figs"><div class="hwv-fig"><b>' + H.nights + '<small> of ' + H.days + '</small></b><span>' + (H.gap > 1 ? 'class days set homework' : 'nights have homework') + '</span></div>' +
+    '<div class="hwv-fig"><b>' + Math.round(H.avgNight) + '<small> min</small></b><span>' + (H.gap > 1 ? 'a night, spread over the ' + H.gap + ' nights before the next class' : 'on a typical night with homework') + '</span></div>' +
     '<div class="hwv-fig' + (limit && H.max > limit ? ' warn' : '') + '"><b>' + H.max + '<small> min</small></b><span>on the longest night' + (limit && H.max > limit ? ', over your limit of ' + limit : '') + '</span></div>' +
     '<div class="hwv-fig"><b>' + hwvPct(H.device, H.total) + '<small>%</small></b><span>of homework minutes need a device or internet</span></div></div>' +
     '<div class="hwv-splits">' + hwvSplit('By purpose', HW_PURPOSES, H.purpose, HWV_COLOR, H.total) + hwvSplit('By kind', HW_KINDS, H.kind, null, H.total) + hwvSplit('By feedback', HW_FEEDBACK, H.fb, null, H.total) + hwvSplit('By grading', HW_GRADING, H.graded, null, H.total) + '</div>' +
@@ -5115,6 +5118,8 @@ function webSVG(c, sim) {
 }
 
 function repPrint(html, name) { const w = window.open('', '_blank'); if (!w) { download(name + '.html', html, 'text/html'); toast('Pop-ups are blocked, so the packet was downloaded. Open it and print from there.'); return; } w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } catch (e) { /* the user can print from the menu */ } }, 400); }
+/* A saved version keeps the whole course, so it can be brought back, not only its headline numbers. */
+const repCopy = (c) => { const k = clone(c); k.snaps = []; return JSON.stringify(k); };
 const repSummary = (c, L, G) => { const S = shares(L); return { active: S.active, together: S.together, high: S.high, hw: L.hw && L.hw.nights ? L.hw.avgNight : 0, days: L.days, serious: App.findings.filter((f) => f.sev >= 2).length, grades: G ? G.areas.map((a) => a.grade) : [] }; };
 
 VIEWS.report = {
@@ -5136,14 +5141,14 @@ VIEWS.report = {
       '<div class="row wrap">' + seg('rep::web', [['now', 'On the last planned day'], ['later', 'Eight weeks later'], ['seen', 'What your assessments would show']], App.rep.web) + '<span class="legend"><span><i class="wkey strong"></i>holding</span><span><i class="wkey partial"></i>shaky</span><span><i class="wkey faint"></i>mostly gone</span><span><i class="wkey none"></i>never taught or never seen</span></span></div>' +
       '<div class="webwrap">' + webSVG(c, sim) + '</div><p class="hint">Each dot is a goal; bigger dots are the lasting ones. A line joins a goal to one it builds on, and it is solid when students can connect the two. Facts that stay unconnected fade first.</p>' +
       (sim.notes && sim.notes.length ? '<div class="stack">' + sim.notes.map((n) => '<div class="simnote">' + esc(n) + '</div>').join('') + '</div>' : '') +
-      '<div class="row wrap"><button class="btn sm" data-act="repStress">Stress-test the year</button><span class="hint">Takes away the days a real year loses and runs it again.</span></div>' +
+      '<div class="row wrap"><button class="btn sm" data-act="repStress">' + (App.rep.stress ? 'Run it again with different days' : 'Stress-test the year') + '</button><span class="hint">Takes away about ' + plural(c.school.lost, 'day') + ', give or take a couple, the way a real year does, and runs it again. Each run draws different days.</span></div>' +
       (App.rep.stress ? '<div class="card"><b>' + plural(App.rep.stress.lost.length, 'day') + ' lost: ' + esc(App.rep.stress.lost.slice(0, 8).map((d) => (d.date ? niceDate(d.date) + ' ' : '') + d.what).join(', ')) + (App.rep.stress.lost.length > 8 ? ' and more' : '') + '.</b>' + (App.rep.stress.notes || []).map((n) => '<span class="hint">' + esc(n) + '</span>').join('') + '</div>' : '') +
       '<details><summary>What this simulation assumes, and what it cannot know</summary><ul class="assume">' + (sim.assumptions || []).map((a) => '<li>' + esc(a.text) + '</li>').join('') + '<li>It is an illustration of well-established findings about practice, feedback and forgetting. It is not a forecast of your students.</li></ul></details>' : '<p class="hint">Add some goals and the simulation will have something to follow.</p>') + '</div>';
     const byArea = {}; App.findings.forEach((f) => (byArea[f.area] = byArea[f.area] || []).push(f));
     const checks = '<div class="panel" id="rep-checks"><h2>Every check <small>' + (App.findings.length ? App.findings.length + ' things to look at. Click one to go there.' : 'Nothing flagged') + '</small></h2>' + (App.findings.length ? (G ? G.areas : []).filter((a) => byArea[a.id]).map((a) => '<div class="stack" style="gap:0"><span class="lbl" id="rep-' + a.id + '">' + a.name + '</span>' + byArea[a.id].map((f) => '<button class="finding s' + f.sev + '" data-act="jump" data-arg="' + esc(JSON.stringify(f.where)) + '"><b>' + esc(f.text) + '</b><span>' + esc(f.why || '') + (f.source ? ' <i>' + esc(f.source) + '</i>' : '') + '</span></button>').join('') + '</div>').join('') : '<p class="hint">Either the design is sound or there is not enough of it yet to check.</p>') + '</div>';
     const snaps = '<div class="panel"><h2>Teach it twice <small>Save where you are, change the design, and compare</small></h2>' + (c.snaps.length ? '<div class="scrollx"><table class="tbl"><tr><th>Version</th><th>Days planned</th><th>Students active</th><th>Pairs or groups</th><th>Higher thinking</th><th>Homework a night</th><th>To fix</th><th>Grades</th><th></th></tr>' +
-      c.snaps.map((s, k) => '<tr><td><b>' + esc(s.name) + '</b></td><td>' + s.days + '</td><td>' + pc(s.active) + '</td><td>' + pc(s.together) + '</td><td>' + pc(s.high) + '</td><td>' + Math.round(s.hw) + ' min</td><td>' + s.serious + '</td><td>' + s.grades.join(' ') + '</td><td><button class="x" data-act="repSnapDel" data-arg="' + k + '" aria-label="Remove this version">×</button></td></tr>').join('') +
-      '<tr class="now"><td><b>Now</b></td><td>' + now.days + '</td><td>' + pc(now.active) + '</td><td>' + pc(now.together) + '</td><td>' + pc(now.high) + '</td><td>' + Math.round(now.hw) + ' min</td><td>' + now.serious + '</td><td>' + now.grades.join(' ') + '</td><td></td></tr></table></div>' : '<p class="hint">A real teacher gets one try at a year. Here you can save a version, redesign, and see the two side by side.</p>') + '<div class="row"><button class="btn sm" data-act="repSnap">Save this version</button></div></div>';
+      c.snaps.map((s, k) => '<tr><td><b>' + esc(s.name) + '</b></td><td>' + s.days + '</td><td>' + pc(s.active) + '</td><td>' + pc(s.together) + '</td><td>' + pc(s.high) + '</td><td>' + Math.round(s.hw) + ' min</td><td>' + s.serious + '</td><td>' + s.grades.join(' ') + '</td><td class="row">' + (s.course ? '<button class="btn sm" data-act="repRestore" data-arg="' + k + '" title="Bring this version back. What you have now is saved as a version first.">Go back to it</button>' : '') + '<button class="x" data-act="repSnapDel" data-arg="' + k + '" aria-label="Remove this version">×</button></td></tr>').join('') +
+      '<tr class="now"><td><b>Now</b></td><td>' + now.days + '</td><td>' + pc(now.active) + '</td><td>' + pc(now.together) + '</td><td>' + pc(now.high) + '</td><td>' + Math.round(now.hw) + ' min</td><td>' + now.serious + '</td><td>' + now.grades.join(' ') + '</td><td></td></tr></table></div>' : '<p class="hint">A real teacher gets one try at a year. Here you can save a version, redesign, see the two side by side, and go back if the first was better.</p>') + '<div class="row"><button class="btn sm" data-act="repSnap">Save this version</button></div></div>';
     const docs = typeof DOCS !== 'undefined' ? '<div class="panel" id="rep-docs"><h2>Take it with you <small>Everything you built, as documents</small></h2><div class="row wrap"><button class="btn pri" data-act="repPacket">Print the whole packet or save it as PDF</button><button class="btn" data-act="repWord">Download for Word or Google Docs</button><button class="btn" data-act="repMd">Download as Markdown</button><button class="btn" data-act="saveFile">Save the course file</button></div><div class="doclist">' + DOCS.map((d) => '<button class="card" data-act="repDoc" data-arg="' + d.id + '"><b>' + esc(d.name) + '</b><span class="hint">' + esc(d.does || 'Open and print') + '</span></button>').join('') + '</div></div>' : '';
     const ban = typeof bannersHTML === 'function' ? bannersHTML(c) : '';
     return '<div class="ws report">' + head + grades + '<div class="grid2 fprow">' + fp + ban + '</div>' + labels + intentP + web + checks + snaps + docs + '</div>';
@@ -5151,8 +5156,16 @@ VIEWS.report = {
 };
 ACT.repArea = (a) => { const el = $('rep-' + a) || $('rep-checks'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return false; };
 ACT.repStress = (a, c) => { try { App.rep.stress = stressTest(c, { seed: (Date.now() / 1000) | 0 }); } catch (e) { toast('The stress test could not run on this course yet.'); } };
-ACT.repSnap = (a, c) => { const L = courseLabel(c), G = typeof gradeCourse === 'function' ? gradeCourse(c, App.findings) : null, s = repSummary(c, L, G); s.name = 'Version ' + (c.snaps.length + 1); c.snaps.push(s); if (c.snaps.length > 8) c.snaps.shift(); toast('Saved. Change the design and come back to compare.'); };
+ACT.repSnap = (a, c) => { const L = courseLabel(c), G = typeof gradeCourse === 'function' ? gradeCourse(c, App.findings) : null, s = repSummary(c, L, G); s.name = 'Version ' + (c.snaps.length + 1); s.course = repCopy(c); c.snaps.push(s); if (c.snaps.length > 5) c.snaps.shift(); toast('Saved. Change the design and come back to compare.'); };
 ACT.repSnapDel = (a, c) => { c.snaps.splice(+a, 1); };
+ACT.repRestore = (a, c) => {
+  const s = c.snaps[+a]; if (!s || !s.course) return;
+  let old = null; try { old = migrate(JSON.parse(s.course)); } catch (e) { toast('That version could not be read.'); return; }
+  const L = courseLabel(c), G = typeof gradeCourse === 'function' ? gradeCourse(c, App.findings) : null, now = repSummary(c, L, G); now.name = 'Before going back'; now.course = repCopy(c);
+  const snaps = c.snaps.filter((x) => x !== s).concat([now]).slice(-5), keepDemo = c.demo;
+  for (const k of Object.keys(c)) delete c[k]; Object.assign(c, old); c.snaps = snaps; if (keepDemo) c.demo = true; App.sel = {};
+  toast('Back to ' + s.name + '. What you had is kept as \u201cBefore going back\u201d.');
+};
 ACT.repPacket = (a, c) => { repPrint(packetHTML(c, []), courseFileName(c, '').replace(/\.$/, '') || 'course-packet'); return false; };
 ACT.repDoc = (a, c) => { repPrint(packetHTML(c, [a]), a); return false; };
 ACT.repWord = (a, c) => { download(courseFileName(c, 'doc'), packetHTML(c, []), 'application/msword'); return false; };
@@ -5285,6 +5298,20 @@ function runUiTest() {
     App.c = kitToCourse(KITS[0], newCourse({})); App.c.demo = true; App.sel = {}; go('report'); clean();
     click('[data-act="repStress"]'); need(App.rep.stress && App.rep.stress.lost.length, 'no stress test'); click('[data-act="repSnap"]'); need(App.c.snaps.length === 1, 'no snapshot');
     need(packetHTML(App.c, []).length > 5000 && courseMarkdown(App.c).length > 500, 'packet too small'); need($('main').querySelector('.fp') && $('main').querySelector('.web'), 'no fingerprint or web');
+  });
+  step('versions can be brought back', () => {
+    App.c = demoCourse(); App.c.demo = true; App.sel = {}; go('report'); const c = App.c, n = c.lessons.length;
+    click('[data-act="repSnap"]'); need(c.snaps.length === 1 && c.snaps[0].course, 'the version did not keep the course');
+    c.lessons.pop(); c.title = 'Changed'; render(); click('[data-act="repRestore"]'); need(App.c.lessons.length === n && App.c.title === 'Biology' && App.c.snaps.length === 1 && App.c.snaps[0].name === 'Before going back', 'going back did not restore the course'); clean();
+  });
+  step('homework on a class that meets every other day', () => {
+    const c = demoCourse(), a = homeworkStats(c, c.lessons); c.school.perWeek = 2.5; const b = homeworkStats(c, c.lessons);
+    need(b.gap === 2 && Math.abs(b.max - a.max / 2) < 0.01 && b.total === a.total && b.maxSet === a.max, 'minutes were not spread over the nights before the next class');
+    App.c = c; c.demo = true; App.sel = {}; go('homework'); clean(); go('report'); clean();
+  });
+  step('a new block is not tied to a goal the teacher did not choose', () => {
+    App.c = demoCourse(); App.c.demo = true; App.sel = {}; go('lessons'); click('[data-act="lessonChooser"]'); click('#modal [data-act="addLesson"][data-arg="direct"]');
+    const l = curLesson(App.c); need(l.blocks.length && l.blocks.every((b) => !b.goals.length), 'a ready-made lesson arrived tagged'); need(lessonLabel(App.c, l).orphan > 10 && /tied to no goal/.test($('main').textContent), 'untagged time is not pointed out');
   });
   step('a saved course is not replaced without asking', () => {
     const real = kitToCourse(KITS[0], newCourse({})); real.title = 'Keep me'; App.c = real; saveNow(); App.c = null; go('start');
