@@ -54,10 +54,11 @@ function runChecks(c) {
   }
   const plannedAll = CL.days;                                 // lesson days planned across the course
   const built = (x) => x.ls.length || x.as.length || x.gs.length || (x.u.questions || []).some((q) => String(q).trim());
+  const LL = {}; c.lessons.forEach((l) => (LL[l.id] = lessonLabel(c, l)));
   const reviewGoals = new Set();
   c.lessons.forEach((l) => { if (l.hw && l.hw.purpose === 'review') (l.hw.goals || []).forEach((g) => reviewGoals.add(g)); });
   const lasting = c.goals.filter((g) => g.priority === 'lasting'), lastingU = lasting.filter((g) => g.kind === 'understanding');
-  const isStrongPerf = (a) => a.method === 'performance' && a.level >= 3;
+  const isStrongPerf = (a) => a.level >= 3 && (a.method === 'performance' || a.method === 'personal' || (a.method === 'written' && a.rubric && a.rubric !== 'none'));
 
   /* ============ ALIGNMENT ============ */
   if (hasGoals) {
@@ -66,18 +67,19 @@ function runChecks(c) {
       add('al-lasting-no-assess', 'alignment', 2, 'Nothing is planned to show whether students reach the lasting understanding ' + ckGoal(g) + '.',
         'Without some evidence, you will not know whether the idea you care most about was learned.', { view: 'evidence', unit: g.unit || undefined, goal: g.id }, 'Wiggins and McTighe');
 
-    // 2. Assessment pitched below the goal. Webb: consistency of the level of thinking.
+    // 2. Assessment pitched below the goal. Webb: consistency of the level of thinking. Each goal is judged by the best assessment that lists it.
+    for (const g of c.goals) {
+      const m = GM[g.id]; if (!m.assess.length) continue;
+      let best = null; for (const id of m.assess) { const a = assessOf(c, id); if (a && (!best || a.level > best.level)) best = a; }
+      if (best && best.level < g.level) add('al-level-below', 'alignment', g.priority === 'familiar' ? 1 : 2,
+        'The best assessment of the goal ' + ckGoal(g) + ' is ' + ckQ(ckTrim(best.title, 50)) + ', which asks for ' + LEVEL_NAME[best.level].toLowerCase() + ', while the goal is set at ' + LEVEL_NAME[g.level].toLowerCase() + '.',
+        'A task that asks for less thinking than the goal can show less than the goal needs. A smaller check alongside a higher-level task is fine.', { view: 'evidence', unit: best.unit, assess: best.id, goal: g.id }, 'Webb, Depth of Knowledge');
+    }
     for (const a of c.assess) {
-      let worst = null;
-      for (const gid of a.goals || []) { const g = goalOf(c, gid); if (g && a.level < g.level && (!worst || g.level - a.level > worst.level - a.level || (g.priority !== 'familiar' && worst.priority === 'familiar'))) worst = g; }
-      if (worst) add('al-level-below', 'alignment', worst.priority === 'familiar' ? 1 : 2,
-        ckQ(ckTrim(a.title, 50)) + ' asks for ' + LEVEL_NAME[a.level].toLowerCase() + ', but the goal ' + ckGoal(worst) + ' is set at ' + LEVEL_NAME[worst.level].toLowerCase() + '.',
-        'A task that asks for less thinking than the goal can show less than the goal needs.', { view: 'evidence', unit: a.unit, assess: a.id, goal: worst.id }, 'Webb, Depth of Knowledge');
-
       // 3. Method against target. Stiggins and Chappuis.
       if (a.targets && a.targets.length && methodFit(a) === 0) {
         const bad = a.targets.find((t) => (METHOD_FIT[t] || {})[a.method] === 0), best = METHODS.filter((m) => METHOD_FIT[bad][m[0]] === 2).map((m) => m[1].toLowerCase());
-        add('al-method-fit', 'alignment', 1, ckQ(ckTrim(a.title, 50)) + ' uses ' + ckName(METHODS, a.method) + ' to check ' + ckName(TARGETS, bad) + ', which that method shows poorly.',
+        add('al-method-fit', 'alignment', 1, ckQ(ckTrim(a.title, 50)) + ' uses ' + ckName(METHODS, a.method) + ' to check ' + ckName(TARGETS, bad) + ', and that method is usually a weak fit for it.',
           'A ' + ckName(TARGETS, bad) + ' target is usually shown more directly by ' + (best.join(' or ') || 'another method') + '.', { view: 'evidence', unit: a.unit, assess: a.id }, 'Stiggins and Chappuis');
       }
     }
@@ -96,26 +98,26 @@ function runChecks(c) {
       const L = x.L; if (!x.ls.length || L.learn <= 0) continue;
       const share = L.orphan / L.learn;
       if (L.orphan >= 10 && share >= 0.15)
-        add('al-orphan', 'alignment', share >= 0.3 ? 1 : 0, 'In ' + ckUnit(x.u) + ', about ' + ckPct(share) + ' of learning time is tied to no goal.',
+        add('al-orphan', 'alignment', share >= 0.25 && L.orphan >= 30 ? 2 : 1, 'In ' + ckUnit(x.u) + ', about ' + ckPct(share) + ' of learning time is tied to no goal.',
           'Time that serves no goal is the easiest place to find room, or to find a goal you have not yet written down.', { view: 'lessons', unit: x.u.id }, 'Wiggins and McTighe');
     }
 
     // 6. A unit that only takes in. Purpose A, M, T from the observer.
     for (const x of Object.values(U)) {
-      const P = x.L.purpose, a = P.A || 0, mt = (P.M || 0) + (P.T || 0), tot = a + mt;
-      if (x.ls.length >= 2 && tot >= 60 && mt / tot < 0.1)
-        add('al-take-in-only', 'alignment', 1, 'The planned lessons in ' + ckUnit(x.u) + ' are almost all taking new material in; ' + (mt ? 'little' : 'none') + ' is aimed at making sense of it or using it on their own.',
-          'Lasting goals tend to need time to work out why and to use the idea somewhere new, as well as to meet it.', { view: 'lessons', unit: x.u.id }, 'Wiggins and McTighe');
+      const P = x.L.purpose, a = P.A || 0, mt = (P.M || 0) + (P.T || 0);
+      if (x.ls.length >= 2 && a >= 60 && mt === 0 && x.gs.some((g) => g.kind === 'understanding'))
+        add('al-take-in-only', 'alignment', 1, 'The planned lessons in ' + ckUnit(x.u) + ' are all take in and practise; none of the minutes is aimed at making sense of the idea or using it somewhere new, and the unit has an understanding goal.',
+          'Goals about understanding tend to need some time to work out why and to use the idea in a new place, as well as to meet and practise it.', { view: 'lessons', unit: x.u.id }, 'Wiggins and McTighe');
     }
 
     // 7. Lasting understanding or transfer aim with no strong performance evidence.
     if (c.assess.length && (lastingU.length || String(c.transfer || '').trim()) && !c.assess.some(isStrongPerf))
-      add('al-no-performance', 'alignment', 1, 'None of the assessments is a performance task at strategic thinking or above, though the course names ' + (lastingU.length ? 'lasting understandings' : 'a transfer aim') + '.',
-        'Using an idea in a new situation is usually shown by a task where students do that, not by recall questions.', { view: 'evidence' }, 'Wiggins and McTighe');
+      add('al-no-performance', 'alignment', 1, 'No assessment is a performance, a conversation or a rubric-marked written task at strategic thinking or above, though the course names ' + (lastingU.length ? 'lasting understandings' : 'a transfer aim') + '.',
+        'Using an idea in a new situation is usually shown by a task where students do that, judged against criteria.', { view: 'evidence' }, 'Wiggins and McTighe');
     else if (c.assess.some(isStrongPerf))
       for (const g of lastingU) { const m = GM[g.id]; if (m.assess.length && !m.assess.some((id) => isStrongPerf(assessOf(c, id))))
-        add('al-no-performance', 'alignment', 1, 'The lasting understanding ' + ckGoal(g) + ' is assessed, but not by a performance task at strategic thinking or above.',
-          'Showing an idea can be used in a new setting usually takes more than recall or short answers.', { view: 'evidence', unit: g.unit || undefined, goal: g.id }, 'Wiggins and McTighe'); }
+        add('al-no-performance', 'alignment', 1, 'The lasting understanding ' + ckGoal(g) + ' is assessed, but not by a performance, conversation or rubric-marked written task at strategic thinking or above.',
+          'Showing an idea can be used in a new setting usually takes more than recall or short answers; a worth-a-look observation, not a rule.', { view: 'evidence', unit: g.unit || undefined, goal: g.id }, 'Wiggins and McTighe'); }
 
     // 8. Goals with no unit (only once units exist; summarized when there are many).
     if (hasUnits) {
@@ -185,23 +187,34 @@ function runChecks(c) {
     if (u.days > 0 && planned > u.days)
       add('fe-unit-overplanned', 'feasibility', 2, ckUnit(u) + ' has ' + planned + ' days of lessons planned, but only ' + u.days + ' budgeted.', 'Either the unit needs more days or some of the lessons will not fit.', { view: 'sequence', unit: u.id }, 'Your own calendar');
     if (x.L.overDays > 0) {
-      let worst = null, count = 0;
-      for (const l of x.ls) { const o = lessonLabel(c, l).over; if (o > 0.5) { count++; if (!worst || o > worst.o) worst = { l, o }; } }
-      if (worst) add('fe-lesson-over', 'feasibility', worst.o >= 8 ? 2 : 1,
-        count === 1 ? ckQ(ckTrim(worst.l.title, 50)) + ' is likely to run about ' + Math.round(worst.o) + ' minutes past the bell.' : plural(count, 'lesson') + ' in ' + ckUnit(u) + ' are likely to run past the bell; the longest, ' + ckQ(ckTrim(worst.l.title, 40)) + ', by about ' + Math.round(worst.o) + ' minutes.',
-        'The plan counts setup and moving around as well as the blocks themselves, so the end of the lesson is the part most likely to be cut.', { view: 'lessons', unit: u.id, lesson: worst.l.id }, 'Your own plan');
+      let worst = null, count = 0, blocks = 0;
+      for (const l of x.ls) { const o = LL[l.id].over; if (o > 0.5) { count++; if (LL[l.id].planned > c.school.period + 0.5) blocks++; if (!worst || o > worst.o) worst = { l, o }; } }
+      if (worst) add('fe-lesson-over', 'feasibility', blocks ? 2 : 1,
+        blocks ? (count === 1 ? ckQ(ckTrim(worst.l.title, 50)) + ' has more minutes of blocks planned than the period holds.' : plural(blocks, 'lesson') + ' in ' + ckUnit(u) + ' have more minutes of blocks planned than the period holds; the longest overrun is in ' + ckQ(ckTrim(worst.l.title, 40)) + '.')
+          : (count === 1 ? ckQ(ckTrim(worst.l.title, 50)) + ' may run past the bell once settling in and moving are counted.' : plural(count, 'lesson') + ' in ' + ckUnit(u) + ' may run past the bell once settling in and moving are counted; the closest call is ' + ckQ(ckTrim(worst.l.title, 40)) + '.'),
+        blocks ? 'The blocks you planned do not fit in the period.' : 'The setup and moving times are estimates, so treat this as worth a look rather than a certainty.', { view: 'lessons', unit: u.id, lesson: worst.l.id }, 'Your own plan');
     }
-    for (const a of x.as) if (a.kind === 'major' && a.min > 0 && x.ls.length && assessDay[a.id] == null)
-      add('fe-assess-no-time', 'feasibility', 1, ckQ(ckTrim(a.title, 50)) + ' needs ' + a.min + ' minutes in class, but no lesson has a block for it.', 'The time has to come from somewhere, and it is easier to find now than the week before.', { view: 'lessons', unit: u.id, assess: a.id }, 'Your own plan');
+    for (const a of x.as) {
+      if (a.kind !== 'major') continue;
+      if (!(a.min > 0) && !(a.out > 0))
+        add('fe-assess-no-minutes', 'feasibility', 1, ckQ(ckTrim(a.title, 50)) + ' is a major assessment that takes no time in or out of class.', 'Every major assessment needs some time from students, so a zero here is likely a gap.', { view: 'evidence', unit: u.id, assess: a.id }, 'Your own plan');
+      else if (a.min > 0 && x.ls.length && assessDay[a.id] == null && u.days > 0 && planned >= u.days)
+        add('fe-assess-no-time', 'feasibility', 1, ckQ(ckTrim(a.title, 50)) + ' needs ' + a.min + ' minutes in class, but no lesson has a block for it, and the unit\u2019s days are fully planned.', 'The time has to come from somewhere, and it is easier to find now than the week before.', { view: 'lessons', unit: u.id, assess: a.id }, 'Your own plan');
+    }
   }
 
   /* ============ PRACTICE AND FEEDBACK ============ */
   for (const x of Object.values(U)) {
     const L = x.L, u = x.u, w = { view: 'lessons', unit: u.id };
-    if (L.days >= 3 && L.show < 1)
-      add('pr-no-show', 'practice', 1, 'In ' + ckUnit(u) + ', the planned lessons never ask students to show what they know along the way.', 'Short checks tell you and the students where things stand while there is still time to adjust.', w, 'Rosenshine');
+    const quiet = sum(x.ls.map((l) => (LL[l.id].show < 2 ? l.days || 1 : 0)));
+    if (L.days >= 3 && (L.show < 1 || quiet > L.days / 2))
+      add('pr-no-show', 'practice', L.show < 1 ? 2 : 1, L.show < 1 ? 'In ' + ckUnit(u) + ', the planned lessons have no time where students show what they know along the way.' : 'In ' + ckUnit(u) + ', more than half of the planned days have under two minutes where students show what they know.', 'Short checks tell you and the students where things stand while there is still time to adjust.', w, 'Rosenshine');
     else if (L.days >= 4 && L.show >= 10 && x.S.fed < 0.15)
       add('pr-show-late-fb', 'practice', 1, 'In ' + ckUnit(u) + ', students show what they know, but almost none of it gets feedback during the lesson.', 'Feedback is easiest to use when it comes while students can still change their answer.', w, 'Black and Wiliam');
+    // Group project time with roles left loose. Slavin; Johnson and Johnson: moderately supported.
+    let loose = 0; for (const l of x.ls) for (const b of l.blocks) { const m = MOVE_BY[b.move]; if (m && (m.sw || []).some((q) => q.id === 'acct') && (b.sw && b.sw.acct) !== 'roles') loose += b.min * (l.days || 1); }
+    if (loose >= 30) add('pr-group-loose', 'practice', 1, 'In ' + ckUnit(u) + ', about ' + Math.round(loose) + ' minutes of group project time leave roles to the team, so no student has a piece they answer for.',
+      'Group work seems to help most when the group has a shared goal and each student answers for a part; the evidence is moderate, so this is worth a look.', w, 'Slavin; Johnson and Johnson');
     // Practised once, never brought back, in a unit long enough to forget it. Spacing gaps are weak: stated as a look.
     if (u.days >= 10 && x.span) {
       const gone = x.gs.filter((g) => { const m = GM[g.id]; return g.priority !== 'familiar' && m.min > 0 && m.days.length === 1 && !m.retr && !reviewGoals.has(g.id) && x.span.to - m.days[0] >= 5; });
@@ -230,10 +243,10 @@ function runChecks(c) {
     if (h.graded === 'accuracy' && fresh) hwNew.push(l);
     if (h.fb === 'none') hwNone.push(l);
   }
-  if (hwNew.length) add('hw-accuracy-new', 'practice', 1, plural(hwNew.length, 'homework task') + ' (first: ' + ckQ(ckTrim(hwNew[0].title, 40)) + ') ' + (hwNew.length === 1 ? 'is' : 'are') + ' graded for accuracy on material students are meeting for the first time.',
-    'First attempts at new material are for learning; grading them for accuracy can penalize the learning itself.', { view: 'homework', unit: hwNew[0].unit, lesson: hwNew[0].id }, 'Cooper and colleagues, homework research');
+  if (hwNew.length) add('hw-accuracy-new', 'practice', 1, plural(hwNew.length, 'homework task') + ' (first: ' + ckQ(ckTrim(hwNew[0].title, 40)) + ') ' + (hwNew.length === 1 ? 'is' : 'are') + ' graded for accuracy on material students are meeting for the first time, which is worth a look.',
+    'Whether to grade first attempts for accuracy is a judgment call; some teachers grade for completion at first.', { view: 'homework', unit: hwNew[0].unit, lesson: hwNew[0].id }, 'Common practice advice; the research on this is thin');
   if (hwNone.length) add('hw-no-feedback', 'practice', hwNone.length >= 3 ? 1 : 0, plural(hwNone.length, 'homework task') + ' (first: ' + ckQ(ckTrim(hwNone[0].title, 40)) + ') ' + (hwNone.length === 1 ? 'gets' : 'get') + ' no feedback of any kind.',
-    'Homework that is never looked at tells students it does not matter, and tells you nothing.', { view: 'homework', unit: hwNone[0].unit, lesson: hwNone[0].id }, 'Cooper and colleagues, homework research');
+    'Whether homework needs any response is a judgment call; a quick look or a go-over in class is one option.', { view: 'homework', unit: hwNone[0].unit, lesson: hwNone[0].id }, 'Common practice advice; the research on this is thin');
 
   /* ============ WORKLOAD ============ */
   const limit = c.intent && c.intent.hw;
@@ -242,13 +255,13 @@ function runChecks(c) {
     if (over.length) {
       over.sort((a, b) => b.hw.min - a.hw.min); const worst = over[0], nights = sum(over.map((l) => l.days || 1));
       add('wl-hw-over', 'workload', worst.hw.min >= limit * 1.5 ? 2 : 1, plural(nights, 'night') + ' of homework ask for more than your own limit of ' + limit + ' minutes; the longest is ' + worst.hw.min + ' minutes (' + ckQ(ckTrim(worst.title, 40)) + ').',
-        'You set that limit yourself, and students have other classes on the same night.', { view: 'homework', unit: worst.unit, lesson: worst.id }, 'Your own intent');
+        'You set that limit yourself, so this is where the plan and your own limit differ.', { view: 'homework', unit: worst.unit, lesson: worst.id }, 'Your own intent');
     }
   }
   {
     const dev = hwL.filter((l) => l.hw.device), nights = sum(hwL.map((l) => l.days || 1)), dn = sum(dev.map((l) => l.days || 1));
     if (dev.length) add('wl-hw-device', 'workload', dn >= 3 || dn / (nights || 1) >= 0.3 ? 1 : 0, plural(dn, 'night') + ' of homework need a device or internet (first: ' + ckQ(ckTrim(dev[0].title, 40)) + ').',
-      'Not every student has reliable access at home, so a plan B or class time is worth a look.', { view: 'homework', unit: dev[0].unit, lesson: dev[0].id }, 'Your own plan');
+      'Some students may not have reliable access at home, so class time or another way in is worth a look.', { view: 'homework', unit: dev[0].unit, lesson: dev[0].id }, 'Your own plan');
   }
 
   /* ============ INTENT ============ */
@@ -259,14 +272,14 @@ function runChecks(c) {
       ['in-high', 'high', 'Learning time at strategic or extended thinking is', 'in', 'high', 'a share of learning time']];
     for (const r of rows) {
       const key = r[1], target = (I[key] || 0) / 100, have = S[key];
-      if (have + 0.05 >= target) continue;
+      if (have + 0.05 + 1e-9 >= target) continue;
       let low = null; for (const x of Object.values(U)) if (x.L.days >= 3 && x.L.learn > 0 && (!low || x.S[key] < low.S[key])) low = x;
       const many = Object.values(U).filter((x) => x.L.days >= 3).length >= 2;
       const txt = key === 'active' ? 'About ' + ckPct(have) + ' of planned class time has students active, against your aim of ' + ckPct(target) + '.'
         : key === 'together' ? 'About ' + ckPct(have) + ' of learning time has students working in pairs or groups, against your aim of ' + ckPct(target) + '.'
         : 'About ' + ckPct(have) + ' of learning time is at strategic or extended thinking, against your aim of ' + ckPct(target) + '.';
-      add(r[0], 'intent', target - have >= 0.25 ? 2 : 1, txt + (many && low ? ' ' + ckUnit(low.u) + ' is furthest below, at ' + ckPct(low.S[key]) + '.' : ''),
-        'This compares the plan with what you said you want, and it says nothing about whether the aim is the right one.', { view: 'lessons', unit: many && low ? low.u.id : undefined }, 'Your own intent');
+      add(r[0], 'intent', 1, txt.replace(/^About/, 'Your plan and your aim differ: about') + (many && low ? ' ' + ckUnit(low.u) + ' is furthest below, at ' + ckPct(low.S[key]) + '.' : ''),
+        'This only compares the plan with what you said you want; it does not say which is better.', { view: 'lessons', unit: many && low ? low.u.id : undefined }, 'Your own intent');
     }
   }
 
@@ -276,8 +289,8 @@ function runChecks(c) {
   return out;
 }
 
-/* How much of the course exists, 0..1: goals 15%, units with days 15%, units with an assessment 15%,
-   lesson days planned against days budgeted 35%, lessons with homework 5%, syllabus 15%. */
+/* How much of the course exists, 0..1: goals 10%, units with days 10%, units with an assessment 10%,
+   lesson days planned against days budgeted 50%, lessons with homework 5%, syllabus 15%. */
 function ckBuilt(c) {
   const nU = c.units.length, budget = budgetedDays(c), planned = sum(c.lessons.map((l) => l.days || 1)), S = c.syllabus || {};
   const goals = Math.min(1, c.goals.length / 8);
@@ -286,29 +299,32 @@ function ckBuilt(c) {
   const lessons = budget ? Math.min(1, planned / budget) : 0;
   const hw = c.lessons.length ? Math.min(1, c.lessons.filter((l) => l.hw && l.hw.min > 0).length / c.lessons.length / 0.6) : 0;
   const syl = ['about', 'materials', 'contact', 'help', 'honesty'].filter((k) => String(S[k] || '').trim()).length / 5;
-  return clamp(0.15 * goals + 0.15 * units + 0.15 * assess + 0.35 * lessons + 0.05 * hw + 0.15 * syl, 0, 1);
+  return clamp(0.10 * goals + 0.10 * units + 0.10 * assess + 0.50 * lessons + 0.05 * hw + 0.15 * syl, 0, 1);
 }
 
 function gradeCourse(c, findings) {
   findings = findings || runChecks(c);
   const nU = c.units.filter((u) => c.lessons.some((l) => l.unit === u.id) || c.assess.some((a) => a.unit === u.id) || c.goals.some((g) => g.unit === u.id) || (u.days > 0)).length;
-  const N = 24 + 10 * Math.max(1, nU), planned = sum(c.lessons.map((l) => l.days || 1)), hwN = c.lessons.filter((l) => l.hw && l.hw.min > 0).length;
-  const enough = {
-    alignment: c.goals.length >= 1, evidence: c.goals.length >= 1 && c.assess.length >= 1, feasibility: c.units.some((u) => u.days > 0),
-    practice: planned >= 3, workload: hwN >= 1 || planned >= 5, intent: planned >= 3,
-  };
-  const calm = { alignment: 'The goals, lessons and assessments line up as far as they are built.', evidence: 'The evidence plan matches the goals as far as it is built.', feasibility: 'The days and minutes fit the calendar so far.',
-    practice: 'Students get chances to practise and to hear back so far.', workload: 'Homework stays within your own limit so far.', intent: 'The plan matches what you said you want, as far as it is built.' };
+  const N = 24 + 10 * Math.max(1, nU), planned = sum(c.lessons.map((l) => l.days || 1)), hwN = c.lessons.filter((l) => l.hw && l.hw.min > 0).length, budget = budgetedDays(c);
+  /* Enough lessons exist to judge how the days run: 10 planned class days, or one unit of 5+ days fully planned. */
+  const enough = planned >= 10 || c.units.some((u) => u.days >= 5 && plannedDays(c, u.id) >= u.days);
+  const can = { alignment: c.goals.length >= 1, evidence: c.goals.length >= 1 && c.assess.length >= 1, feasibility: c.units.some((u) => u.days > 0),
+    practice: enough, workload: enough && (hwN >= 1 || planned >= 5), intent: enough };
+  const basis = { alignment: plural(c.goals.length, 'goal') + ' and ' + plural(c.assess.length, 'assessment'), evidence: plural(c.goals.length, 'goal') + ' and ' + plural(c.assess.length, 'assessment'),
+    feasibility: plural(budget, 'budgeted day') + (enough ? '' : ' (the calendar only; lessons are not planned enough to judge minutes)'), practice: plural(planned, 'planned day'), workload: plural(planned, 'planned day'), intent: plural(planned, 'planned day') };
   const wait = { alignment: 'Add some goals to see how well the plan lines up.', evidence: 'Add goals and an assessment to judge the evidence.', feasibility: 'Budget days for the units to compare them with the calendar.',
-    practice: 'Plan a few lessons to see how students practise and get feedback.', workload: 'Plan some lessons or homework to judge the workload.', intent: 'Plan a few lessons to compare them with your intent.' };
+    practice: 'Plan at least 10 class days, or one whole unit, before this can be judged.', workload: 'Plan at least 10 class days, or one whole unit, with homework before this can be judged.', intent: 'Plan at least 10 class days, or one whole unit, before the plan can be compared with your aim.' };
   const areas = CHECK_AREAS.map(([id, name]) => {
     const mine = findings.filter((f) => f.area === id), n = mine.length;
-    if (!enough[id]) return { id, name, score: null, grade: '—', summary: wait[id], n };
-    const P = sum(mine.map((f) => CHECK_WEIGHT[f.sev])), score = Math.round(100 * N / (N + P)), s2 = mine.filter((f) => f.sev === 2).length, s1 = mine.filter((f) => f.sev === 1).length;
-    const summary = !n ? calm[id] : (s2 ? plural(s2, 'thing') + ' to fix' + (s1 ? ' and ' + plural(s1, 'more thing') + ' worth a look.' : '.') : s1 ? plural(s1, 'thing') + ' worth a look.' : plural(n, 'small note') + '.');
+    if (!can[id]) return { id, name, score: null, grade: '\u2014', summary: wait[id], n };
+    const P = sum(mine.map((f) => CHECK_WEIGHT[f.sev])); let score = Math.round(100 * N / (N + P));
+    if (id === 'intent') score = Math.max(score, 80);          // an aim you set yourself never pulls the grade below B minus
+    const s2 = mine.filter((f) => f.sev === 2).length, s1 = mine.filter((f) => f.sev === 1).length, s0 = n - s2 - s1;
+    const parts = [s2 && plural(s2, 'thing') + ' to fix', s1 && plural(s1, 'thing') + ' worth a look', s0 && plural(s0, 'small note')].filter(Boolean);
+    const summary = (parts.length ? parts.join(' and ') : 'Nothing to flag') + ' across ' + basis[id] + '.';
     return { id, name, score, grade: gradeLetter(score), summary, n };
   });
-  return { areas, built: ckBuilt(c) };
+  return { areas, built: ckBuilt(c), enough, planned: budget > 0 ? clamp(planned / budget, 0, 1) : 0 };
 }
 
 /* Findings for one view, optionally narrowed to a unit, lesson, assessment or goal. `where` may be a view id or { view, unit, lesson, assess, goal }. */

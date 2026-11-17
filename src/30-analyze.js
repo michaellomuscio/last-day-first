@@ -7,9 +7,11 @@ const blankLabel = () => ({ days: 0, time: 0, planned: 0, overhead: 0, total: 0,
 const dominantFam = (mix) => { const f = {}; for (const k in mix) f[CODES[k].fam] = (f[CODES[k].fam] || 0) + mix[k]; let best = 'take', bv = -1; for (const k in f) if (f[k] > bv) { bv = f[k]; best = k; } return best; };
 /* Which of the four ways of engaging a code counts as, given how the block is run. */
 function icapOf(code, e) {
-  if (code === 'listen' && e.think) return { A: 1 };
-  if (code === 'discuss') { const i = clamp(e.talk * 5, 0.15, 1); return { I: i, A: 1 - i }; }
-  if ((code === 'assess' || code === 'practice') && e.lv >= 3) return { C: 1 };
+  /* Listening, reading or watching with a task to do counts as working with it; without one it is receiving (after Chi and Wylie). */
+  if ((code === 'listen' || code === 'read' || code === 'watch') && e.think) return { A: 1 };
+  /* In a discussion a student is either adding to what others said or following it closely; counted half and half. */
+  if (code === 'discuss') return { I: 0.5, A: 0.5 };
+  if ((code === 'assess' || code === 'practice' || code === 'qa') && e.lv >= 3) return { C: 1 };
   const o = {}; o[CODES[code].icap] = 1; return o;
 }
 
@@ -23,7 +25,7 @@ function lessonOverhead(c, lesson) {
     const e = blockEff(b); let su = e.setup;
     if (prev && prev.arr === e.arr && su <= 1) su = 0;
     if (r(su) > 0) items.push({ before: i, min: r(su), what: 'Getting into ' + e.move.name.toLowerCase() });
-    if (r(e.cleanup) > 0) items.push({ before: i + 1, min: r(e.cleanup), what: 'Cleaning up' });
+    if (r(e.cleanup) > 0 && !bl.slice(i + 1).some((x) => x.move === 'cleanup')) items.push({ before: i + 1, min: r(e.cleanup), what: 'Cleaning up' });
     prev = e;
   });
   if (bl.length && bl[bl.length - 1].move !== 'cleanup') items.push({ before: bl.length, min: r(1), what: 'Packing up' });
@@ -31,7 +33,7 @@ function lessonOverhead(c, lesson) {
 }
 
 function lessonLabel(c, lesson) {
-  const L = blankLabel(), oh = lessonOverhead(c, lesson), segs = []; let t = 0, run = { fam: null, min: 0 };
+  const L = blankLabel(), oh = lessonOverhead(c, lesson), segs = [], nStu = Math.max(2, c.school.classSize || 18); let t = 0, run = { fam: null, min: 0 };
   const bump = (fam, m) => { if (run.fam === fam) run.min += m; else run = { fam, min: m }; if (run.min > L.stretch.min && fam !== 'over') L.stretch = { min: run.min, fam }; };
   const over = (i) => oh.filter((x) => x.before === i).forEach((x) => { segs.push({ t0: t, t1: t + x.min, over: true, what: x.what, arr: null, mix: { admin: 1 } }); t += x.min; L.byCode.admin = (L.byCode.admin || 0) + x.min; L.icap.N += x.min; L.overhead += x.min; bump('over', x.min); });
   lesson.blocks.forEach((b, i) => {
@@ -45,11 +47,12 @@ function lessonLabel(c, lesson) {
     L.thinker[e.th] = (L.thinker[e.th] || 0) + learn; L.group[e.g] = (L.group[e.g] || 0) + learn;
     L.purpose[e.pu] = (L.purpose[e.pu] || 0) + learn; if (e.pu !== 'N') L.level[e.lv] = (L.level[e.lv] || 0) + learn;
     L.show += m * e.show; if (e.fb === 'now') L.fbNow += m * e.show; else if (e.fb === 'later') L.fbLater += m * e.show;
-    L.fbNow += m * (e.mix.revise || 0); L.talk += m * e.talk; if (e.retr) L.retr++;
+    /* A typical student's speaking time: their share of pair or group talk, plus an equal share of the time students hold the floor. A one-minute quiz is not counted as bringing learning back. */
+    L.talk += m * (e.talk + e.floor / nStu); if (e.retr && m >= 3) L.retr++;
     L.planned += m;
     const gs = (b.goals || []).filter((g) => goalOf(c, g));
     if (e.pu !== 'N' && !gs.length) L.orphan += learn;
-    for (const g of gs) { const G = L.goals[g] || (L.goals[g] = { min: 0, A: 0, M: 0, T: 0, retr: 0, show: 0, fb: 0, lv: 0 }), v = learn / gs.length; G.min += v; if (e.pu !== 'N') G[e.pu] += v; if (e.retr) G.retr++; G.show += m * e.show / gs.length; if (e.fb === 'now') G.fb += m * e.show / gs.length; G.lv = Math.max(G.lv, e.lv); }
+    for (const g of gs) { const G = L.goals[g] || (L.goals[g] = { min: 0, A: 0, M: 0, T: 0, retr: 0, show: 0, fb: 0, lv: 0 }), v = learn / gs.length; G.min += v; if (e.pu !== 'N') G[e.pu] += v; if (e.retr && m >= 3) G.retr++; G.show += m * e.show / gs.length; if (e.fb === 'now') G.fb += m * e.show / gs.length; G.lv = Math.max(G.lv, e.lv); }
     segs.push({ t0: t, t1: t + m, block: b.id, i, arr: e.arr, mix: e.mix, e }); t += m; bump(dominantFam(e.mix), m);
   });
   over(lesson.blocks.length);

@@ -13,7 +13,7 @@ function demoCourse() {
   const g6 = G(0, 'The history of cell theory.', 'knowledge', 'familiar', 1);
   const g7 = G(1, 'Living things get the matter and energy they need by rearranging molecules, not by creating them.', 'understanding', 'lasting', 3, [g1]);
   const g8 = G(1, 'Write and explain the equations for photosynthesis and respiration.', 'knowledge', 'important', 2, [g7]);
-  const g9 = G(2, 'Traits are inherited as discrete units, shuffled each generation.', 'understanding', 'lasting', 3);
+  const g9 = G(2, 'Genes are passed on as separate units and shuffled each generation, though most traits depend on many genes and on surroundings.', 'understanding', 'lasting', 3);
   const g10 = G(2, 'Predict offspring ratios with a Punnett square.', 'skill', 'important', 2, [g9]);
   const g11 = G(3, 'Populations change over generations because some inherited traits help individuals leave more offspring.', 'understanding', 'lasting', 3, [g9]);
   const major = addAssess(c, U[0].id, { title: 'The dialysis clinic brief', kind: 'major', method: 'performance', targets: ['reasoning', 'product'], level: 3, goals: [g1.id, g3.id], min: 50, out: 60, fb: 'rubric', back: 5, rubric: 'analytic', retake: true, role: 'A science writer for a kidney clinic', audience: 'New patients and their families', product: 'A one-page illustrated explainer of how a dialysis machine does the work of a membrane' });

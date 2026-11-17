@@ -1,4 +1,11 @@
-/* Goals: the aim, three columns of goals, the web of ideas, the sorting game. */
+/* Goals: the aim, three columns of goals, the web of ideas, the sorting game.
+   Text colors are checked at 4.5 to 1 on the paper, card and tinted backgrounds used here. The root rule below darkens the grey, amber, red and green tokens inside this screen only. */
+.ws.gl, .gl-mod { --ink3: #5e5a63; --warn: #8a5700; --red: #b8301c; --bad: #b0301d; --good: #26703f }
+.ws.gl { grid-template-columns: minmax(0, 1fr) }
+.gl-mod { display: contents }
+.ws.gl .panel { grid-template-columns: minmax(0, 1fr) }
+.ws.gl .panel > h2 { flex-wrap: wrap }
+.a11y-g { display: inline-block; max-width: 100% }
 .gl-narrow { display: none }
 .gl-aim { border-width: 3px }
 .gl-aimh { font: 900 20px/1.1 var(--f-ui); font-stretch: 108%; letter-spacing: -.01em }
@@ -30,8 +37,8 @@
 .gl-legend .k { display: inline-block; border-radius: 50% }
 .gl-legend .k.l { width: 18px; height: 18px; background: var(--ink) }
 .gl-legend .k.i { width: 13px; height: 13px; border: 2px solid var(--ink); background: var(--card) }
-.gl-legend .k.f { width: 8px; height: 8px; background: #a8a39a }
-.gl-webwrap { overflow-x: auto; border: 2px solid var(--line2); border-radius: var(--r); background: var(--card) }
+.gl-legend .k.f { width: 8px; height: 8px; background: #7d786f }
+.gl-webwrap { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border: 2px solid var(--line2); border-radius: var(--r); background: var(--card) }
 .gl-svg { display: block; max-width: none }
 .gl-colbg { fill: rgba(23, 23, 27, .035) } .gl-colbg.alt { fill: rgba(23, 23, 27, .075) }
 .gl-colh { font: 800 11px var(--f-ui); letter-spacing: .07em; fill: var(--ink) }
@@ -40,12 +47,14 @@
 .gl-edge.on { stroke: var(--ink); stroke-width: 2.8; opacity: 1 }
 .has-sel .gl-edge:not(.on) { opacity: .22 }
 .gl-dot { cursor: pointer; outline: none }
+.gl-focus { display: none; fill: none; stroke: var(--blue); stroke-width: 3; pointer-events: none }
+.gl-dot:focus-visible .gl-focus { display: block }
 .gl-hit { fill: transparent }
 .gl-dot:hover .gl-hit, .gl-dot:focus-visible .gl-hit { fill: rgba(255, 228, 92, .45) }
 .gl-ring { fill: var(--hi); stroke: var(--ink); stroke-width: 2 }
 .gl-dot.lasting .gl-c { fill: var(--ink); stroke: var(--ink); stroke-width: 2 }
 .gl-dot.important .gl-c { fill: var(--card); stroke: var(--ink); stroke-width: 2.2 }
-.gl-dot.familiar .gl-c { fill: #a8a39a; stroke: #a8a39a; stroke-width: 1 }
+.gl-dot.familiar .gl-c { fill: #7d786f; stroke: #7d786f; stroke-width: 1 }
 .gl-lbl { font: 500 11.5px var(--f-ui); fill: var(--ink2); paint-order: stroke; stroke: var(--card); stroke-width: 4px; stroke-linejoin: round }
 .gl-dot.lasting .gl-lbl { font-weight: 800; fill: var(--ink) }
 .gl-dot.sel .gl-lbl { font-weight: 800; fill: var(--ink) }
@@ -61,7 +70,8 @@
 .gl-choice:disabled { cursor: default; box-shadow: none }
 .gl-choice.right { background: var(--good); color: #fff } .gl-choice.right span { color: #fff }
 .gl-choice.wrong { background: var(--bad); color: #fff } .gl-choice.wrong span { color: #fff }
-.gl-choice.dim { opacity: .45 }
+.gl-choice.dim { opacity: .6 }
+.gl-say { font: 800 11px var(--f-ui); font-style: normal; letter-spacing: .08em; text-transform: uppercase; margin-left: 6px; padding: 1px 6px; border: 1.5px solid currentColor; border-radius: 3px }
 .gl-fb { padding: 10px 12px; border: 2px solid var(--line2); background: var(--card); font-size: 15px }
 .gl-fb.ok { border-left: 8px solid var(--good) } .gl-fb.no { border-left: 8px solid var(--bad) }
 .gl-advice { font: 700 18px/1.35 var(--f-ui) }
@@ -69,6 +79,12 @@
 .gl-prog i { flex: 1; height: 8px; border: 1.5px solid var(--line2); background: var(--card) }
 .gl-prog i.now { background: var(--hi) } .gl-prog i.ok { background: var(--good) } .gl-prog i.no { background: var(--bad) }
 
+@media (pointer: coarse), (max-width: 700px) {
+  .ws.gl .btn, .ws.gl .seg button, .ws.gl .chip, .ws.gl .pick, .ws.gl .field, .gl-mod .btn, .gl-choice { min-height: 40px }
+  .ws.gl .btn, .ws.gl .seg button, .ws.gl .chip, .gl-mod .btn { min-width: 40px }
+  .ws.gl .seg button { display: inline-flex; align-items: center; justify-content: center }
+  .gl-goal .seg button { padding: 6px 10px }
+}
 @media (max-width: 1100px) { .gl-narrow { display: block } }
 @media (max-width: 1000px) { .gl-cols { grid-template-columns: minmax(0, 1fr) } }
 @media (max-width: 700px) { .gl-choices { grid-template-columns: minmax(0, 1fr) } .gl-two { grid-template-columns: minmax(0, 1fr) } .gl-q { font-size: 19px } }

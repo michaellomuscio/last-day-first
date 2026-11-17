@@ -42,19 +42,20 @@ function evVerdicts(c, a) {
 
 function evEditor(c, a, u) {
   const p = 'assess:' + a.id + ':', major = a.kind === 'major', gs = evGoalsSorted(c, u.id);
-  const lab = (t, hint) => '<span class="lbl">' + t + '</span>' + (hint ? '<span class="hint">' + hint + '</span>' : '');
+  const lab = (t, hint, key) => '<span class="lbl"' + (key ? ' id="ev-l-' + a.id + '-' + key + '"' : '') + '>' + t + '</span>' + (hint ? '<span class="hint">' + hint + '</span>' : '');
+  const grp = (key, inner) => a11yGroup('ev-l-' + a.id + '-' + key, inner), nm = a.title || (major ? 'major assessment' : 'check');
   const m = METHODS.find((x) => x[0] === a.method);
   return evVerdicts(c, a) + '<div class="ev-fields">' +
-    '<div class="stack">' + lab('Method') + seg(p + 'method', METHODS, a.method) + '<span class="hint">' + esc(m ? m[2] : '') + '</span></div>' +
-    '<div class="stack">' + lab('What it targets', 'Pick all that apply.') + chips(p + 'targets', TARGETS, a.targets) + '</div>' +
-    '<div class="stack">' + lab('Thinking level') + seg(p + 'level', LEVELS, a.level) + '<span class="hint">' + esc((LEVELS.find((x) => x[0] === a.level) || [0, 0, ''])[2]) + '</span></div>' +
-    '<div class="stack ev-wide">' + lab('Goals it gives evidence of') + goalPicker(p + 'goals', gs, a.goals) + '</div>' +
-    '<div class="stack">' + lab('Minutes in class') + stepper(p + 'min', a.min, 0, 240, 5) + '</div>' +
-    '<div class="stack">' + lab('Minutes outside class') + stepper(p + 'out', a.out, 0, 600, 5) + '</div>' +
-    '<div class="stack">' + lab('Feedback students get') + seg(p + 'fb', FEEDBACKS, a.fb) + '</div>' +
-    (a.fb !== 'none' ? '<div class="stack">' + lab('Days until it comes back') + stepper(p + 'back', a.back, 0, 60, 1) + '</div>' : '') +
-    '<div class="stack">' + lab('Rubric') + seg(p + 'rubric', RUBRICS, a.rubric) + '</div>' +
-    '<div class="stack">' + lab('Retakes allowed') + seg(p + 'retake', [[true, 'Yes'], [false, 'No']], a.retake) + '</div>' +
+    '<div class="stack">' + lab('Method', '', 'method') + grp('method', seg(p + 'method', METHODS, a.method)) + '<span class="hint">' + esc(m ? m[2] : '') + '</span></div>' +
+    '<div class="stack">' + lab('What it targets', 'Pick all that apply.', 'targets') + grp('targets', chips(p + 'targets', TARGETS, a.targets)) + '</div>' +
+    '<div class="stack">' + lab('Thinking level', '', 'level') + grp('level', seg(p + 'level', LEVELS, a.level)) + '<span class="hint">' + esc((LEVELS.find((x) => x[0] === a.level) || [0, 0, ''])[2]) + '</span></div>' +
+    '<div class="stack ev-wide">' + lab('Goals it gives evidence of', '', 'goals') + grp('goals', goalPicker(p + 'goals', gs, a.goals)) + '</div>' +
+    '<div class="stack">' + lab('Minutes in class') + a11yStep('Minutes in class for ' + nm, p + 'min', a.min, 0, 240, 5) + '</div>' +
+    '<div class="stack">' + lab('Minutes outside class') + a11yStep('Minutes outside class for ' + nm, p + 'out', a.out, 0, 600, 5) + '</div>' +
+    '<div class="stack">' + lab('Feedback students get', '', 'fb') + grp('fb', seg(p + 'fb', FEEDBACKS, a.fb)) + '</div>' +
+    (a.fb !== 'none' ? '<div class="stack">' + lab('Days until it comes back') + a11yStep('Days until feedback comes back for ' + nm, p + 'back', a.back, 0, 60, 1) + '</div>' : '') +
+    '<div class="stack">' + lab('Rubric', '', 'rubric') + grp('rubric', seg(p + 'rubric', RUBRICS, a.rubric)) + '</div>' +
+    '<div class="stack">' + lab('Retakes allowed', '', 'retake') + grp('retake', seg(p + 'retake', [[true, 'Yes'], [false, 'No']], a.retake)) + '</div>' +
     (major && a.method === 'performance' ? '<div class="stack ev-wide ev-real"><span class="lbl">Make the task real</span><div class="grid3">' +
       '<label class="stack"><span class="hint">The role students take</span>' + field(p + 'role', a.role, 'placeholder="A lab technician writing to a doctor"') + '</label>' +
       '<label class="stack"><span class="hint">The audience</span>' + field(p + 'audience', a.audience, 'placeholder="Parents at a clinic night"') + '</label>' +
@@ -64,18 +65,18 @@ function evEditor(c, a, u) {
 
 function evMajorCard(c, a, u) {
   return '<section class="card ev-card ev-major' + (App.sel.assess === a.id ? ' sel' : '') + '" id="ev-' + a.id + '"><div class="row"><span class="tag ink">Major</span><input class="field big grow" data-bind="assess:' + a.id + ':title" value="' + esc(a.title) + '" aria-label="Title of the major assessment">' +
-    '<button class="btn sm ghost danger" data-act="evDel" data-arg="' + a.id + '">Delete</button></div>' + evEditor(c, a, u) + '</section>';
+    '<button class="btn sm ghost danger" data-act="evDel" data-arg="' + a.id + '" aria-label="Delete ' + esc(evTitle(a)) + '">Delete</button></div>' + evEditor(c, a, u) + '</section>';
 }
 function evMinorRow(c, a, u) {
   const open = App.sel.evOpen === a.id || App.sel.assess === a.id, f = methodFit(a);
   const head = '<div class="row ev-minor-h"><button class="ev-toggle grow" data-act="evOpen" data-arg="' + a.id + '" aria-expanded="' + open + '"><span class="ev-caret">' + (open ? '▾' : '▸') + '</span><b>' + esc(short(evTitle(a), 50)) + '</b><span class="hint">' + esc(optName(METHODS, a.method)) + ' · ' + a.min + ' min · ' + plural((a.goals || []).length, 'goal') + '</span></button>' +
-    (f === 0 ? tag('Poor fit', 'bad') : '') + '<button class="x" data-act="evDel" data-arg="' + a.id + '" aria-label="Delete this check" title="Delete">×</button></div>';
+    (f === 0 ? tag('Poor fit', 'bad') : '') + '<button class="x" data-act="evDel" data-arg="' + a.id + '" aria-label="Delete ' + esc(evTitle(a)) + '" title="Delete">×</button></div>';
   if (!open) return '<div class="card ev-card ev-minor">' + head + '</div>';
-  return '<div class="card ev-card ev-minor sel" id="ev-' + a.id + '">' + head + '<div class="stack"><span class="lbl">Title</span>' + field('assess:' + a.id + ':title', a.title, 'aria-label="Title of the check"') + '</div>' + evEditor(c, a, u) + '</div>';
+  return '<div class="card ev-card ev-minor sel" id="ev-' + a.id + '">' + head + '<div class="stack"><label class="lbl" for="ev-t-' + a.id + '">Title</label>' + field('assess:' + a.id + ':title', a.title, 'id="ev-t-' + a.id + '"') + '</div>' + evEditor(c, a, u) + '</div>';
 }
 
 function evUnitRow(c) {
-  return '<div class="ev-units" role="group" aria-label="Units">' + c.units.map((u, k) => {
+  return '<div class="ev-units" role="group" aria-label="Choose a unit to work on">' + c.units.map((u, k) => {
     const as = unitAssess(c, u.id), maj = as.filter((a) => a.kind === 'major').length;
     return '<button class="ev-unit' + (App.sel.unit === u.id ? ' on' : '') + '" data-act="sel" data-arg="unit=' + u.id + '" aria-pressed="' + (App.sel.unit === u.id) + '"><b>' + (k + 1) + '. ' + esc(short(u.title || 'Untitled unit', 26)) + '</b>' +
       (maj ? tag(plural(maj, 'major'), 'good') : tag('No major', 'bad')) + '<span class="hint">' + plural(as.length - maj, 'check') + '</span></button>';
@@ -94,7 +95,7 @@ function evGoalList(c, u) {
 function evGrid(c, u) {
   const gs = evGoalsSorted(c, u.id), as = evAssessSorted(c, u.id);
   if (!gs.length || !as.length) return '<p class="hint">The grid appears once this unit has a goal and an assessment.</p>';
-  let h = '<div class="ev-gridwrap"><table class="ev-grid"><thead><tr><th class="g">Goal</th>' + as.map((a) => '<th title="' + esc(evTitle(a)) + '"><span class="ev-col">' + (a.kind === 'major' ? '<i>Major</i>' : '<i>Check</i>') + esc(short(evTitle(a), 28)) + '</span></th>').join('') + '</tr></thead><tbody>';
+  let h = '<div class="ev-gridwrap"><table class="ev-grid" aria-label="Which assessment gives evidence of which goal"><thead><tr><th class="g" scope="col">Goal</th>' + as.map((a) => '<th scope="col" title="' + esc(evTitle(a)) + '"><span class="ev-col">' + (a.kind === 'major' ? '<i>Major</i>' : '<i>Check</i>') + esc(short(evTitle(a), 28)) + '</span></th>').join('') + '</tr></thead><tbody>';
   for (const g of gs) {
     const none = !evEvidenceFor(c, g.id).length;
     h += '<tr class="' + (none ? 'none' : '') + '"><th class="g" scope="row"><span>' + esc(short(g.text || 'Untitled goal', 70)) + '</span>' + (none ? ' ' + tag('No evidence', 'bad') : '') + '</th>' +
@@ -107,7 +108,7 @@ function evCourseStrip(c) {
   c.assess.forEach((a) => (count[a.method] = (count[a.method] || 0) + 1));
   const lasting = c.goals.filter((g) => g.priority === 'lasting'), withE = lasting.filter((g) => evEvidenceFor(c, g.id).length).length;
   return '<div class="ev-course"><div class="stack"><span class="lbl">Methods across the whole course</span>' +
-    (n ? '<div class="ev-bar" role="img" aria-label="Mix of assessment methods">' + METHODS.filter((m) => count[m[0]]).map((m) => '<i style="flex:' + count[m[0]] + ';background:' + EV_METHOD_COLOR[m[0]] + '" title="' + esc(m[1] + ': ' + count[m[0]]) + '"></i>').join('') + '</div>' +
+    (n ? '<div class="ev-bar" role="img" aria-label="' + esc('Mix of assessment methods: ' + METHODS.map((m) => m[1] + ' ' + (count[m[0]] || 0)).join(', ')) + '">' + METHODS.filter((m) => count[m[0]]).map((m) => '<i style="flex:' + count[m[0]] + ';background:' + EV_METHOD_COLOR[m[0]] + '" title="' + esc(m[1] + ': ' + count[m[0]]) + '"></i>').join('') + '</div>' +
       '<div class="legend">' + METHODS.map((m) => '<span><i class="dot" style="background:' + EV_METHOD_COLOR[m[0]] + '"></i>' + esc(m[1]) + ' <b class="num">' + (count[m[0]] || 0) + '</b></span>').join('') + '</div>' : '<p class="hint">No assessments yet.</p>') + '</div>' +
     '<div class="stack"><span class="lbl">Lasting goals with evidence</span>' + (lasting.length ? '<div class="ev-big"><b class="num">' + withE + '</b> of ' + lasting.length + '</div><span class="hint">' + (lasting.length - withE ? plural(lasting.length - withE, 'lasting goal') + ' with nothing to show students got there.' : 'Every lasting goal has something that would show it.') + '</span>' : '<p class="hint">No lasting goals yet.</p>') + '</div></div>';
 }
@@ -120,8 +121,8 @@ VIEWS.evidence = {
     if (!u) return '<div class="ws">' + head + empty('Evidence belongs to a unit. Lay out your units first.', '<button class="btn pri" data-act="go" data-arg="sequence">Go to Sequence</button>') + '</div>';
     const as = evAssessSorted(c, u.id), maj = as.filter((a) => a.kind === 'major'), min = as.filter((a) => a.kind === 'minor');
     return '<div class="ws ev">' + head +
-      '<div class="panel"><div class="row wrap"><span class="lbl">Unit</span><div class="grow">' + pick('ui::unit', c.units.map((x, k) => [x.id, (k + 1) + '. ' + (x.title || 'Untitled unit')]), u.id, 'aria-label="Unit"') + '</div></div><div data-live="evunits">' + evUnitRow(c) + '</div></div>' +
-      '<div class="panel"><h2>What should students show in ' + esc(u.title || 'this unit') + '?<small>Goals, most lasting first</small></h2><div data-live="evgoals">' + evGoalList(c, u) + '</div></div>' +
+      '<div class="panel"><div class="row wrap"><label class="lbl" for="ev-unit">Unit</label><div class="grow">' + pick('ui::unit', c.units.map((x, k) => [x.id, (k + 1) + '. ' + (x.title || 'Untitled unit')]), u.id, 'id="ev-unit"') + '</div></div><div data-live="evunits">' + evUnitRow(c) + '</div></div>' +
+      '<div class="panel"><h2>What should students show in \u201c' + esc((u.title || 'this unit').replace(/[?!.]+$/, '')) + '\u201d?<small>Goals, most lasting first</small></h2><div data-live="evgoals">' + evGoalList(c, u) + '</div></div>' +
       '<div class="stack"><div class="row between wrap"><h2 class="ev-h">Major assessments <small class="hint">The big task or test where students show what the unit was for.</small></h2><button class="btn sm pri" data-act="evAdd" data-arg="major">+ Add a major assessment</button></div>' +
       (maj.length ? maj.map((a) => evMajorCard(c, a, u)).join('') : empty('This unit has no major assessment. Without one, nothing says what the unit was for.', '')) + '</div>' +
       '<div class="stack"><div class="row between wrap"><h2 class="ev-h">Smaller checks <small class="hint">Short checks along the way that tell you who is lost while there is still time to help.</small></h2><button class="btn sm" data-act="evAdd" data-arg="minor">+ Add a small check</button></div>' +

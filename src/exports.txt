@@ -7,3 +7,4 @@ KITS kitToCourse validateKit labelHTML
 LATE_POLICIES RETAKE_POLICIES DOCS packetHTML courseMarkdown courseFileName
 runChecks gradeCourse checksFor gradeLetter CHECK_AREAS
 simulate stressTest simStudents SIM_RULES simDetect
+syllabusMissing

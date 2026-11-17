@@ -2,6 +2,8 @@
    Every top-level name here starts with syl. */
 const SYL_WEIGHTS = [['major', 'Major assessments', 'Tests, projects and essays that show what students can do'], ['minor', 'Minor assessments', 'Quizzes and small tasks'], ['homework', 'Homework', 'Work done outside class'], ['participation', 'Participation', 'Taking part in class']];
 const sylTotal = (c) => sum(SYL_WEIGHTS.map((w) => +c.syllabus.weights[w[0]] || 0));
+/* The printed syllabus has its own title and sections (h1, h2, h3). On this page they sit under the panel heading, so each moves down two levels and the screen keeps one h1. */
+const sylShiftHeads = (h) => h.replace(/<(\/?)h([1-3])(?=[\s>])/g, (m, s, n) => '<' + s + 'h' + (+n + 2));
 const sylSyllabusDoc = () => DOCS.find((d) => d.id === 'syllabus');
 
 /* How the weights compare with the design: counts of assessments, and whether any homework is graded. */
@@ -42,23 +44,24 @@ VIEWS.syllabus = {
   render(c) {
     const S = c.syllabus, W = S.weights || {}, doc = sylSyllabusDoc(), empty0 = !S.about.trim();
     const head = '<div class="ws-head"><div class="eyebrow">Chapter 7</div><h1>Syllabus</h1><p>The syllabus is the promise you make to students and families on day one. It should match the course you actually built.</p></div>';
-    const about = '<div class="panel"><h2>What this course is about</h2>' + area('syllabus::about', S.about, 'rows="4" placeholder="Two or three plain sentences a family would understand."') +
+    const about = '<div class="panel"><h2>What this course is about</h2>' + area('syllabus::about', S.about, 'id="syl-about" aria-label="What this course is about" rows="4" placeholder="Two or three plain sentences a family would understand."') +
       '<div class="row wrap"><button class="btn sm" data-act="sylDraft" ' + (empty0 && (c.units.length || c.transfer.trim()) ? '' : 'disabled') + ' title="Works only while the box is empty">Draft it from my aim and unit questions</button><span class="hint">' + (empty0 ? 'It joins your aim and your unit questions into a few sentences. You rewrite it.' : 'Clear the box to draft a fresh one.') + '</span></div>' +
-      '<div class="grid2"><div class="stack"><span class="lbl">Your name</span>' + field('course::teacher', c.teacher, 'placeholder="Printed at the top of the syllabus"') + '</div><div class="stack"><span class="lbl">Grade</span>' + field('course::grade', c.grade, 'placeholder="For example 9"') + '</div></div></div>';
-    const wrows = SYL_WEIGHTS.map((w) => '<div class="syl-w"><span><b>' + w[1] + '</b><small>' + w[2] + '</small></span>' + stepper('weights::' + w[0], +W[w[0]] || 0, 0, 100, 5) + '<span class="hint">percent</span></div>').join('');
+      '<div class="grid2"><div class="stack"><label class="lbl" for="syl-teacher">Your name</label>' + field('course::teacher', c.teacher, 'id="syl-teacher" placeholder="Printed at the top of the syllabus"') + '</div><div class="stack"><label class="lbl" for="syl-grade">Grade</label>' + field('course::grade', c.grade, 'id="syl-grade" placeholder="For example 9"') + '</div></div></div>';
+    const wrows = SYL_WEIGHTS.map((w) => '<div class="syl-w"><span><b>' + w[1] + '</b><small>' + w[2] + '</small></span>' + a11yStep('Percent of the grade for ' + w[1].toLowerCase(), 'weights::' + w[0], +W[w[0]] || 0, 0, 100, 5) + '<span class="hint">percent</span></div>').join('');
     const weights = '<div class="panel"><h2>How the grade is worked out <small>Must add up to 100</small></h2>' + wrows +
       '<div class="row wrap" data-live="wtotal">' + sylTotalHTML(c) + '</div><div class="row wrap"><button class="btn sm" data-act="sylEven">Split evenly</button><button class="btn sm" data-act="sylScale" ' + (sylTotal(c) > 0 && sylTotal(c) !== 100 ? '' : 'disabled') + ' title="Keep the same proportions and make the total 100">Scale to 100</button></div>' +
       '<div class="syl-cmpbox"><span class="lbl">Compared with your design</span><div data-live="compare">' + sylCompareHTML(c) + '</div></div></div>';
-    const pol = (title, path, table, cur) => '<div class="stack"><span class="lbl">' + title + '</span>' + seg(path, table.map((x) => [x[0], x[1]]), cur) + '<p class="syl-quote" data-live="pol-' + path.split(':')[2] + '">' + esc(sylPolicy(table, cur)) + '</p></div>';
+    const pol = (title, path, table, cur) => '<div class="stack"><span class="lbl" id="syl-l-' + path.split(':')[2] + '">' + title + '</span>' + a11yGroup('syl-l-' + path.split(':')[2], seg(path, table.map((x) => [x[0], x[1]]), cur)) + '<p class="syl-quote" data-live="pol-' + path.split(':')[2] + '">' + esc(sylPolicy(table, cur)) + '</p></div>';
     const policy = '<div class="panel"><h2>Late work and retakes</h2>' + pol('Late work', 'syllabus::late', LATE_POLICIES, S.late) + pol('Retakes', 'syllabus::retake', RETAKE_POLICIES, S.retake) +
       '<p class="hint">Experienced teachers disagree about both of these, and there is no single right answer. The choice is yours. Pick what you can keep up all year.</p></div>';
     const words = '<div class="panel"><h2>In your own words</h2>' +
-      '<div class="stack"><span class="lbl">What students need to bring</span>' + area('syllabus::materials', S.materials, 'rows="2" placeholder="Notebook, calculator, a charged laptop"') + '</div>' +
-      '<div class="stack"><span class="lbl">Academic honesty</span>' + area('syllabus::honesty', S.honesty, 'rows="3" placeholder="What counts as your own work, and what happens if it is not"') + '</div>' +
-      '<div class="stack"><span class="lbl">How to get help</span>' + area('syllabus::help', S.help, 'rows="3" placeholder="When you are stuck: where to go, when you are free, who else can help"') + '</div>' +
-      '<div class="stack"><span class="lbl">How to reach you</span>' + area('syllabus::contact', S.contact, 'rows="2" placeholder="School email, and when you usually answer"') + '</div></div>';
-    const preview = '<div class="syl-side"><div class="row between wrap"><span class="sec-h" style="display:block">The syllabus as families will see it</span><span class="row"><button class="btn sm pri" data-act="sylPrint">Print or save as PDF</button><button class="btn sm" data-act="sylWord">Download for Word</button></span></div>' +
-      '<div class="syl-sheet"><div class="syl-doc" data-live="preview">' + (doc ? doc.html(c) : '') + '</div></div></div>';
+      '<div class="stack"><label class="lbl" for="syl-materials">What students need to bring</label>' + area('syllabus::materials', S.materials, 'id="syl-materials" rows="2" placeholder="Notebook, calculator, a charged laptop"') + '</div>' +
+      '<div class="stack"><label class="lbl" for="syl-honesty">Academic honesty</label>' + area('syllabus::honesty', S.honesty, 'id="syl-honesty" rows="3" placeholder="What counts as your own work, and what happens if it is not"') + '</div>' +
+      '<div class="stack"><label class="lbl" for="syl-help">How to get help</label>' + area('syllabus::help', S.help, 'id="syl-help" rows="3" placeholder="When you are stuck: where to go, when you are free, who else can help"') + '</div>' +
+      '<div class="stack"><label class="lbl" for="syl-contact">How to reach you</label>' + area('syllabus::contact', S.contact, 'id="syl-contact" rows="2" placeholder="School email, and when you usually answer"') + '</div></div>';
+    const sylMiss = typeof syllabusMissing === 'function' ? syllabusMissing(c) : [];
+    const preview = '<div class="syl-side"><div data-live="sylmiss">' + (sylMiss.length ? '<div class="syl-draft"><b>Not ready to send.</b> Still missing: ' + esc(sylMiss.join('; ')) + '. Until then it prints with a draft notice at the top.</div>' : '<div class="syl-draft ok"><b>Ready to send.</b> Read it once as a parent would before you do.</div>') + '</div><div class="row between wrap"><h2 class="sec-h" style="display:block">The syllabus as families will see it</h2><span class="row"><button class="btn sm pri" data-act="sylPrint">Print or save as PDF</button><button class="btn sm" data-act="sylWord">Download for Word</button></span></div>' +
+      '<div class="syl-sheet"><div class="syl-doc" data-live="preview">' + (doc ? sylShiftHeads(doc.html(c)) : '') + '</div></div></div>';
     return '<div class="ws syl">' + head + '<div class="syl-grid"><div class="stack syl-form">' + about + weights + policy + words + '</div>' + preview + '</div></div>';
   },
 };

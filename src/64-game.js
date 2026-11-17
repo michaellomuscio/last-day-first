@@ -18,14 +18,17 @@ const BANNERS = [
 ];
 /* Minutes in the first `m` minutes of a lesson in which students are doing more than taking it in. */
 function warmActiveBy(L, m) { let a = 0; for (const s of L.segs || []) { if (s.over || s.t0 >= m) continue; const span = Math.min(s.t1, m) - s.t0; let act = 0; for (const code in s.mix) { const ic = icapOf(code, s.e); act += s.mix[code] * ((ic.A || 0) + (ic.C || 0) + (ic.I || 0)); } a += span * act; } return a; }
+/* What a starter kit already satisfies when it loads. Those banners are not the teacher's doing, so they are never awarded. */
+function bannerBase(c) { const x = { lessons: c.lessons.map((l) => lessonLabel(c, l)), findings: App.findings, days: sum(c.lessons.map((l) => l.days || 1)) }; c.game.base = {}; for (const b of BANNERS) { try { if (b.test(c, x)) c.game.base[b.id] = 1; } catch (e) { /* not met */ } } }
 function checkBanners(c) {
   if (!c || c.demo) return;
   const x = { lessons: c.lessons.map((l) => lessonLabel(c, l)), findings: App.findings, days: sum(c.lessons.map((l) => l.days || 1)) };
-  for (const b of BANNERS) { if (c.game.banners[b.id]) continue; let ok = false; try { ok = !!b.test(c, x); } catch (e) { ok = false; } if (ok) { c.game.banners[b.id] = 1; toast('Banner earned: ' + b.name); } }
+  for (const b of BANNERS) { if (c.game.banners[b.id] || (c.game.base && c.game.base[b.id])) continue; let ok = false; try { ok = !!b.test(c, x); } catch (e) { ok = false; } if (ok) { c.game.banners[b.id] = 1; toast('Banner earned: ' + b.name); } }
 }
 function bannersHTML(c) {
   const n = BANNERS.filter((b) => c.game.banners[b.id]).length;
-  return '<div class="panel"><h2>Banners <small>' + n + ' of ' + BANNERS.length + '</small></h2><div class="bans">' + BANNERS.map((b) => '<div class="ban' + (c.game.banners[b.id] ? ' won' : '') + '" title="' + esc(b.how) + '"><b>' + b.name + '</b><span>' + b.how + '</span></div>').join('') + '</div></div>';
+  const base = c.game.base || {};
+  return '<div class="panel"><h2>Banners <small>' + n + ' earned' + (Object.keys(base).length ? ' \u00b7 ' + Object.keys(base).length + ' came with the starter kit' : '') + '</small></h2><p class="hint">Banners mark things you did to the design. They are not a score.</p><div class="bans">' + BANNERS.map((b) => '<div class="ban' + (c.game.banners[b.id] ? ' won' : base[b.id] ? ' kit' : '') + '" title="' + esc(b.how) + '"><b>' + b.name + '</b><span>' + (base[b.id] && !c.game.banners[b.id] ? 'Came with the starter kit.' : b.how) + '</span></div>').join('') + '</div></div>';
 }
 const baseRender = render;
 render = function () { baseRender(); if (App.c && App.view !== 'start') { const before = Object.keys(App.c.game.banners).length; checkBanners(App.c); if (Object.keys(App.c.game.banners).length !== before) { save(); if (App.view === 'report') baseRender(); } } };
@@ -48,7 +51,7 @@ const WARM_TASKS = [
 ];
 function warmPanel(c, l, L) {
   const done = WARM_TASKS.map((t) => t[1](L)), all = done.every(Boolean);
-  return '<div class="warm"><div class="stack"><div class="eyebrow">Warm-up</div><h2>' + (all ? 'That is the whole tool in one lesson.' : 'This lesson is a first draft. Make it better.') + '</h2><p>' + (all ? 'You changed the design and the observer’s report changed with it. Your own course works the same way, for every lesson, unit and the year.' : 'A new teacher planned this period: a long explanation, a video, a few questions. Click a block on the strip to shorten or remove it. Add blocks from the list below. Watch the label on the right.') + '</p>' + (all ? '<div class="row"><button class="btn pri" data-act="go" data-arg="start">Start my own course</button></div>' : '') + '</div><div class="stack" data-live="warm">' + WARM_TASKS.map((t, k) => '<div class="task' + (done[k] ? ' done' : '') + '"><i>' + (done[k] ? '✓' : '') + '</i>' + t[0] + '</div>').join('') + '</div></div>';
+  return '<div class="warm"><div class="stack"><div class="eyebrow">Warm-up</div><h2>' + (all ? 'That is the whole tool in one lesson.' : 'This lesson is a first draft. Make it better.') + '</h2><p>' + (all ? 'You changed the design and the observer’s report changed with it. Your own course works the same way, for every lesson, unit and the year.' : 'A new teacher planned this period: a long explanation, a video, a few questions. Click a block on the strip to shorten or remove it. Add blocks from the list below. Watch the label on the right.') + '</p>' + (all ? '<div class="row"><button class="btn pri" data-act="go" data-arg="start">Start my own course</button></div>' : '<p class="warmhint">Stuck on feedback? It comes from blocks where students show their work and hear back at once: guided practice, partner practice, a retrieval warm-up, or independent practice with the switch set to \u201cYou circulate and respond\u201d.</p>') + '</div><div class="stack" data-live="warm">' + WARM_TASKS.map((t, k) => '<div class="task' + (done[k] ? ' done' : '') + '"><i>' + (done[k] ? '✓' : '') + '</i>' + t[0] + '</div>').join('') + '</div></div>';
 }
-ACT.warmup = () => { App.c = warmCourse(); go('lessons'); return false; };
+ACT.warmup = () => { flushSave(); App.c = warmCourse(); go('lessons'); return false; };
 MENTOR.report = (c) => { const L = courseLabel(c); return L.days < 5 ? ['There is not much here to read yet. Plan a week of one unit and come back.'] : ['Read the label before the grades. The grades tell you what to fix. The label tells you what it is like to be your student.']; };

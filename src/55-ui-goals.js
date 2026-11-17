@@ -3,7 +3,14 @@
 const goalsUI = { focus: null };
 const GOALS_ROWS = 8;        // dots per sub-column in the web before it wraps
 const GOALS_SUBW = 176;      // width of one sub-column in the web
-const GOALS_PITCH = 28;      // vertical spacing of dots
+const GOALS_PITCH = 28;      // vertical spacing of dots (40 on touch screens, so each dot is a big enough target)
+const goalsTouch = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse), (max-width: 700px)').matches);
+const goalsPitch = () => (goalsTouch() ? 40 : GOALS_PITCH);
+/* Small helpers for naming controls, used by all six chapter files (a11y is the shared prefix).
+   a11yGroup wraps a helper's buttons in a named group. a11yStep names the stepper's number box and its two buttons. */
+const a11yGroup = (labelId, inner) => '<span class="a11y-g" role="group" aria-labelledby="' + labelId + '">' + inner + '</span>';
+const a11yGroupL = (label, inner) => '<span class="a11y-g" role="group" aria-label="' + esc(label) + '">' + inner + '</span>';
+const a11yStep = (name, path, value, min, max, step) => stepper(path, value, min, max, step).replace('aria-label="Less"', 'aria-label="Decrease ' + esc(name) + '"').replace('aria-label="Amount"', 'aria-label="' + esc(name) + '"').replace('aria-label="More"', 'aria-label="Increase ' + esc(name) + '"');
 const goalsRank = (p) => (p === 'lasting' ? 0 : p === 'important' ? 1 : 2);
 const goalsNeed = (c) => (c.units.length ? 2 * c.units.length : 6);
 
@@ -27,11 +34,11 @@ function goalsCard(c, g) {
   const unitOpts = [['', 'No unit yet']].concat(c.units.map((u, i) => [u.id, (i + 1) + '. ' + short(u.title || 'Untitled unit', 30)]));
   const lv = LEVELS.find((x) => x[0] === g.level);
   return '<div class="gl-goal' + (App.sel.goal === g.id ? ' sel' : '') + '" id="gl-' + g.id + '">' +
-    area(p + 'text', g.text, 'rows="3" placeholder="Students will understand, know or be able to…" aria-label="Goal"') +
-    '<div class="stack" style="gap:4px"><span class="lbl">What kind</span>' + seg(p + 'kind', GOAL_KINDS, g.kind) + '</div>' +
-    '<div class="gl-two"><div class="stack" style="gap:4px"><span class="lbl">Thinking level</span>' + pick(p + 'level', LEVELS, g.level, 'data-num title="' + esc(lv ? lv[2] : '') + '" aria-label="Thinking level"') + '</div>' +
-    '<div class="stack" style="gap:4px"><span class="lbl">Unit</span>' + pick(p + 'unit', unitOpts, g.unit || '', 'aria-label="Unit"') + '</div></div>' +
-    '<div class="gl-foot"><span class="lbl">Move to</span>' + others.map((o) => '<button class="btn sm" data-act="goalMove" data-arg="' + g.id + '=' + o[0] + '">' + esc(o[1]) + '</button>').join('') +
+    area(p + 'text', g.text, 'rows="3" placeholder="Students will understand, know or be able to…" aria-label="Goal text"') +
+    '<div class="stack" style="gap:4px"><span class="lbl" id="gl-k-' + g.id + '">What kind</span>' + a11yGroup('gl-k-' + g.id, seg(p + 'kind', GOAL_KINDS, g.kind)) + '</div>' +
+    '<div class="gl-two"><div class="stack" style="gap:4px"><label class="lbl" for="gl-lv-' + g.id + '">Thinking level</label>' + pick(p + 'level', LEVELS, g.level, 'id="gl-lv-' + g.id + '" data-num title="' + esc(lv ? lv[2] : '') + '"') + '</div>' +
+    '<div class="stack" style="gap:4px"><label class="lbl" for="gl-un-' + g.id + '">Unit</label>' + pick(p + 'unit', unitOpts, g.unit || '', 'id="gl-un-' + g.id + '"') + '</div></div>' +
+    '<div class="gl-foot" role="group" aria-label="Move or delete this goal"><span class="lbl">Move to</span>' + others.map((o) => '<button class="btn sm" data-act="goalMove" data-arg="' + g.id + '=' + o[0] + '">' + esc(o[1]) + '</button>').join('') +
     '<button class="btn sm ghost danger gl-del" data-act="goalDel" data-arg="' + g.id + '" aria-label="Delete this goal">Delete</button></div></div>';
 }
 function goalsColumns(c) {
@@ -50,18 +57,18 @@ function goalsWebLayout(c) {
   const cols = [], loose = c.goals.filter((g) => !g.unit);
   if (loose.length) cols.push(mk(null, 'Unplaced', loose));
   c.units.forEach((u, i) => cols.push(mk(u.id, (i + 1) + '. ' + (u.title || 'Untitled unit'), c.goals.filter((g) => g.unit === u.id))));
-  const pos = {}; let x = 0, maxRows = 1;
+  const pos = {}, P = goalsPitch(); let x = 0, maxRows = 1;
   cols.forEach((col) => {
     const subs = Math.max(1, Math.ceil(col.goals.length / GOALS_ROWS)); col.x = x; col.w = subs * GOALS_SUBW + 12;
-    col.goals.forEach((g, i) => { const sub = Math.floor(i / GOALS_ROWS), row = i % GOALS_ROWS; pos[g.id] = { x: x + 22 + sub * GOALS_SUBW, y: 62 + row * GOALS_PITCH }; maxRows = Math.max(maxRows, Math.min(GOALS_ROWS, col.goals.length)); });
+    col.goals.forEach((g, i) => { const sub = Math.floor(i / GOALS_ROWS), row = i % GOALS_ROWS; pos[g.id] = { x: x + 22 + sub * GOALS_SUBW, y: 62 + row * P }; maxRows = Math.max(maxRows, Math.min(GOALS_ROWS, col.goals.length)); });
     x += col.w;
   });
-  return { cols, pos, w: Math.max(x, 200), h: 62 + maxRows * GOALS_PITCH + 14 };
+  return { cols, pos, w: Math.max(x, 200), h: 62 + maxRows * P + 14, pitch: P };
 }
 function goalsWebHTML(c) {
   if (!c.goals.length) return empty('Add a few goals above and they appear here as dots.');
   const L = goalsWebLayout(c), sel = App.sel.goal && goalOf(c, App.sel.goal) ? App.sel.goal : null, R = { lasting: 9, important: 6.5 };
-  let s = '<svg class="gl-svg' + (sel ? ' has-sel' : '') + '" width="' + L.w + '" height="' + L.h + '" viewBox="0 0 ' + L.w + ' ' + L.h + '" role="group" aria-label="Web of ideas">';
+  let s = '<svg class="gl-svg' + (sel ? ' has-sel' : '') + '" width="' + L.w + '" height="' + L.h + '" viewBox="0 0 ' + L.w + ' ' + L.h + '" role="group" aria-label="Dots for each goal">';
   L.cols.forEach((col, i) => {
     const max = Math.max(8, Math.floor((col.w - 20) / 7.3)), t = short(col.title, max);
     s += '<g><title>' + esc(col.title) + '</title><rect class="gl-colbg' + (i % 2 ? ' alt' : '') + '" x="' + col.x + '" y="0" width="' + col.w + '" height="' + L.h + '"/>' +
@@ -77,8 +84,9 @@ function goalsWebHTML(c) {
   });
   c.goals.forEach((g) => {
     const b = L.pos[g.id]; if (!b) return; const r = R[g.priority] || 4, name = g.text || 'Untitled goal';
-    s += '<g class="gl-dot ' + (goalsRank(g.priority) === 0 ? 'lasting' : goalsRank(g.priority) === 1 ? 'important' : 'familiar') + (g.id === sel ? ' sel' : '') + '" data-act="goalDot" data-arg="' + g.id + '" tabindex="0" role="button" aria-label="' + esc(short(name, 80)) + '" aria-pressed="' + (g.id === sel) + '">' +
-      '<title>' + esc(name) + '</title><rect class="gl-hit" x="' + (b.x - 14) + '" y="' + (b.y - 13) + '" width="' + (GOALS_SUBW - 20) + '" height="26"/>' +
+    s += '<g class="gl-dot ' + (goalsRank(g.priority) === 0 ? 'lasting' : goalsRank(g.priority) === 1 ? 'important' : 'familiar') + (g.id === sel ? ' sel' : '') + '" data-act="goalDot" data-arg="' + g.id + '" tabindex="0" role="button" aria-label="' + esc(optName(PRIORITIES, g.priority) + ': ' + short(name, 80)) + '" aria-pressed="' + (g.id === sel) + '">' +
+      '<title>' + esc(name) + '</title><rect class="gl-hit" x="' + (b.x - 14) + '" y="' + (b.y - L.pitch / 2) + '" width="' + (GOALS_SUBW - 20) + '" height="' + L.pitch + '"/>' +
+      '<circle class="gl-focus" cx="' + b.x + '" cy="' + b.y + '" r="' + (r + 9) + '"/>' +
       (g.id === sel ? '<circle class="gl-ring" cx="' + b.x + '" cy="' + b.y + '" r="' + (r + 7) + '"/>' : '') +
       '<circle class="gl-c" cx="' + b.x + '" cy="' + b.y + '" r="' + r + '"/><text class="gl-lbl" x="' + (b.x + 15) + '" y="' + (b.y + 4) + '">' + esc(short(name, 24)) + '</text></g>';
   });
@@ -91,7 +99,7 @@ function goalsWebHTML(c) {
       (down.length ? '<div class="row wrap"><span class="lbl">Leads to</span>' + down.map((u) => '<span class="chip" title="' + esc(u.text) + '">' + esc(short(u.text || 'Untitled goal', 40)) + '</span>').join('') + '</div>' : '') +
       '<button class="btn sm" data-act="goalClear">Clear selection</button></div>';
   } else info = '<div class="gl-info"><p class="hint">Click a dot to pick a goal. Then click another to connect them.</p></div>';
-  return '<div class="gl-webwrap">' + s + '</div>' + info;
+  return '<div class="gl-webwrap" tabindex="0" role="region" aria-label="Web of ideas. Scrolls sideways when it is wider than the screen.">' + s + '</div>' + info;
 }
 
 /* ---------- the sorting game ---------- */
@@ -140,18 +148,18 @@ function goalsGameHTML() {
     const advice = score >= 8 ? 'You can tell them apart. Now check your own list: are most of your goals the easy kind to write, which is facts?'
       : score >= 5 ? 'You are close. When unsure, ask: can I look it up, can I watch someone do it, or does it explain why or how?'
       : 'Try this test on each goal. If you can look it up, it is knowledge. If you can watch it, it is a skill. If it explains why or how, it is an understanding.';
-    return top + '<h2>You got ' + score + ' of ' + n + '</h2>' + dots + '<p class="gl-advice">' + advice + '</p><p class="hint">Most real goals mix kinds. Pick the one that matters most for that goal.</p><div class="foot"><button class="btn" data-act="goalPractice">Play again</button><button class="btn pri" data-act="closeModal">Back to my goals</button></div>';
+    return top + '<h2 id="gl-game-h">You got ' + score + ' of ' + n + '</h2>' + dots + '<p class="gl-advice">' + advice + '</p><p class="hint">Most real goals mix kinds. Pick the one that matters most for that goal.</p><div class="foot"><button class="btn" data-act="goalPractice">Play again</button><button class="btn pri" data-act="closeModal">Back to my goals</button></div>';
   }
   const q = goalsBank[G.order[G.i]], ans = G.got[G.i], answered = ans != null;
   const btns = GOAL_KINDS.map((kd) => {
     const cls = answered ? (kd[0] === q.k ? ' right' : kd[0] === ans ? ' wrong' : ' dim') : '';
-    return '<button class="gl-choice' + cls + '" data-act="goalAnswer" data-arg="' + kd[0] + '"' + (answered ? ' disabled' : '') + '><b>' + (kd[0] === 'skill' ? 'A skill' : kd[0] === 'understanding' ? 'A big idea' : 'A fact') + '</b><span>' +
+    return '<button class="gl-choice' + cls + '" data-act="goalAnswer" data-arg="' + kd[0] + '"' + (answered ? ' disabled' : '') + '><b>' + (kd[0] === 'skill' ? 'A skill' : kd[0] === 'understanding' ? 'A big idea' : 'A fact') + (answered && kd[0] === q.k ? ' <em class="gl-say">Correct answer</em>' : answered && kd[0] === ans ? ' <em class="gl-say">Your answer</em>' : '') + '</b><span>' +
       (kd[0] === 'knowledge' ? 'Something you can look up or recall.' : kd[0] === 'skill' ? 'Something students can do.' : 'An idea that explains why or how.') + '</span></button>';
   }).join('');
-  const fb = answered ? '<p class="gl-fb ' + (ans === q.k ? 'ok' : 'no') + '"><b>' + (ans === q.k ? 'Right.' : 'Not quite. This is ' + goalsKindName[q.k] + '.') + '</b> ' + esc(q.why) + '</p><div class="foot"><button class="btn pri" data-act="goalNext" id="gl-next">' + (G.i + 1 >= n ? 'See my score' : 'Next statement') + '</button></div>' : '';
-  return top + '<h2>Fact, skill or big idea?</h2>' + dots + '<p class="lbl">Statement ' + (G.i + 1) + ' of ' + n + '</p><p class="gl-q">“' + esc(q.t) + '”</p><div class="gl-choices">' + btns + '</div>' + fb;
+  const fb = answered ? '<p id="gl-fb" class="gl-fb ' + (ans === q.k ? 'ok' : 'no') + '"><b>' + (ans === q.k ? 'Right.' : 'Not quite. This is ' + goalsKindName[q.k] + '.') + '</b> ' + esc(q.why) + '</p><div class="foot"><button class="btn pri" data-act="goalNext" id="gl-next" aria-describedby="gl-fb">' + (G.i + 1 >= n ? 'See my score' : 'Next statement') + '</button></div>' : '';
+  return top + '<h2 id="gl-game-h">Fact, skill or big idea?</h2>' + dots + '<p class="lbl">Statement ' + (G.i + 1) + ' of ' + n + '</p><p class="gl-q">“' + esc(q.t) + '”</p><div class="gl-choices" role="group" aria-label="What kind of goal is this statement">' + btns + '</div>' + fb;
 }
-function goalsGameShow() { openModal(goalsGameHTML()); const b = $('gl-next') || document.querySelector('#modal .gl-choice'); if (b) b.focus({ preventScroll: true }); }
+function goalsGameShow() { openModal('<div class="gl-mod">' + goalsGameHTML() + '</div>'); const b = $('gl-next') || document.querySelector('#modal .gl-choice:not(:disabled)') || document.querySelector('#modal .btn.pri'); if (b) b.focus({ preventScroll: true }); }
 ACT.goalPractice = () => { goalsGameStart(); goalsGameShow(); return false; };
 ACT.goalAnswer = (a) => { if (!goalsGame || goalsGame.done || goalsGame.got[goalsGame.i] != null) return false; goalsGame.got[goalsGame.i] = a; goalsGameShow(); return false; };
 ACT.goalNext = () => { if (!goalsGame) return false; goalsGame.i++; if (goalsGame.i >= goalsGame.order.length) goalsGame.done = true; goalsGameShow(); return false; };
@@ -173,7 +181,7 @@ VIEWS.goals = {
       goalsColumns(c) +
       '<section class="panel gl-web"><h2>The web of ideas <small>' + plural(c.goals.length, 'dot') + '</small></h2>' +
       '<p class="hint">Dots are what students should know. Lines are how ideas connect, and connected ideas are the ones that last.</p>' +
-      '<div class="gl-legend"><span><i class="k l"></i>Lasting</span><span><i class="k i"></i>Important</span><span><i class="k f"></i>Worth meeting</span></div>' +
+      '<div class="gl-legend"><span><i class="k l" aria-hidden="true"></i>Lasting: large solid dot</span><span><i class="k i" aria-hidden="true"></i>Important: medium open dot</span><span><i class="k f" aria-hidden="true"></i>Worth meeting: small grey dot</span></div>' +
       '<div data-live="goalweb">' + goalsWebHTML(c) + '</div></section></div>';
   },
   after(root) {
@@ -212,6 +220,9 @@ ACT.goalDot = (id, c) => {
   if (goalsReach(c, id, first.id)) { toast(second.after.includes(first.id) ? 'The other goal already builds on this one. Two goals cannot build on each other.' : 'That would make a circle of goals that build on each other.'); return; }
   first.after.push(id); toast('Now this goal builds on the one you clicked.');
 };
+/* The web has taller rows on touch screens, so redraw it when the screen crosses that line. */
+let goalsWasTouch = goalsTouch(), goalsRz = 0;
+window.addEventListener('resize', () => { clearTimeout(goalsRz); goalsRz = setTimeout(() => { const t = goalsTouch(); if (t !== goalsWasTouch) { goalsWasTouch = t; if (App.view === 'goals' && App.c && !App.modal) render(); } }, 150); });
 document.addEventListener('keydown', (ev) => {
   const el = ev.target; if (!el || !el.classList || !el.classList.contains('gl-dot')) return;
   if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); el.dispatchEvent(new MouseEvent('click', { bubbles: true })); }

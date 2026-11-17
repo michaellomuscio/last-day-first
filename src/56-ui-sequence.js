@@ -16,7 +16,7 @@ function seqClean(c) {
 /* ---------- the day budget ---------- */
 function seqBudgetHTML(c) {
   const avail = availableDays(c), used = budgetedDays(c), diff = avail - used, total = Math.max(avail, used, 1), pc = (n) => (100 * n / total).toFixed(3) + '%';
-  let bar = '<div class="sq-bar" role="img" aria-label="' + used + ' days budgeted of ' + avail + ' available">';
+  let bar = '<div class="sq-bar" role="img" aria-label="' + esc(used + ' days budgeted of ' + avail + ' available. ' + c.units.map((u, i) => (i + 1) + '. ' + (u.title || 'Untitled') + ', ' + (u.days || 0) + ' days').join('. ') + (used > avail ? '. Over by ' + (used - avail) + ' days.' : '')) + '">';
   c.units.forEach((u, i) => { bar += '<div class="sq-seg s' + (i % 2) + '" style="flex:' + (u.days || 0) + ' 0 0" title="' + esc((i + 1) + '. ' + u.title + ': ' + (u.days || 0) + ' days') + '"><b>' + (i + 1) + '</b><span>' + esc(u.title || 'Untitled') + '</span><i>' + (u.days || 0) + '</i></div>'; });
   if (diff > 0) bar += '<div class="sq-seg spare" style="flex:' + diff + ' 0 0" title="' + diff + ' days of buffer"><span>' + (diff >= total * 0.06 ? 'Buffer' : '') + '</span></div>';
   if (used > avail) bar += '<div class="sq-over" style="left:' + pc(avail) + ';width:' + pc(used - avail) + '"></div>';
@@ -40,16 +40,16 @@ function seqBudgetHTML(c) {
 function seqUnitCard(c, u, k) {
   const p = 'unit:' + u.id + ':', src = seqSrc(u.source), mine = unitGoals(c, u.id), free = c.goals.filter((g) => !g.unit);
   const hasLast = mine.some((g) => g.priority === 'lasting');
-  const qs = u.questions.map((q, i) => '<div class="row"><input class="field" data-seqq="' + u.id + ':' + i + '" value="' + esc(q) + '" placeholder="A question with no single right answer" aria-label="Question ' + (i + 1) + '"><button class="x" data-act="seqQDel" data-arg="' + u.id + '=' + i + '" aria-label="Remove this question">×</button></div>').join('');
+  const qs = u.questions.map((q, i) => '<div class="row"><input class="field" data-seqq="' + u.id + ':' + i + '" value="' + esc(q) + '" placeholder="A question with no single right answer" aria-label="Question ' + (i + 1) + ' for unit ' + (k + 1) + '"><button class="x" data-act="seqQDel" data-arg="' + u.id + '=' + i + '" aria-label="Remove question ' + (i + 1) + ' from unit ' + (k + 1) + '">×</button></div>').join('');
   const groups = PRIORITIES.map((pr) => { const gs = mine.filter((g) => g.priority === pr[0]); if (!gs.length) return ''; return '<div class="sq-grp"><span class="tag ' + (pr[0] === 'lasting' ? 'ink' : '') + '">' + esc(pr[1]) + '</span><span class="chips">' + gs.map((g) => '<button class="chip" data-act="seqUnplace" data-arg="' + g.id + '" title="' + esc((g.text || 'Untitled goal') + ' (click to take it out of this unit)') + '">' + esc(short(g.text || 'Untitled goal', 44)) + ' ×</button>').join('') + '</span></div>'; }).join('');
-  const place = free.length ? '<select class="pick" data-seqgoalto="' + u.id + '" aria-label="Place a goal in this unit"><option value="">Place a goal here…</option>' + free.map((g) => '<option value="' + g.id + '">' + esc(short((g.text || 'Untitled goal'), 60)) + '</option>').join('') + '</select>' : '<p class="hint">Every goal already has a unit.</p>';
+  const place = free.length ? '<select class="pick" data-seqgoalto="' + u.id + '" aria-label="Place a goal in unit ' + (k + 1) + '"><option value="">Place a goal here…</option>' + free.map((g) => '<option value="' + g.id + '">' + esc(short((g.text || 'Untitled goal'), 60)) + '</option>').join('') + '</select>' : '<p class="hint">Every goal already has a unit.</p>';
   return '<section class="sq-unit" id="sq-' + u.id + '"><div class="sq-uhead"><span class="sq-n" aria-hidden="true">' + (k + 1) + '</span>' +
-    '<input class="field big grow" data-bind="' + p + 'title" value="' + esc(u.title) + '" aria-label="Unit ' + (k + 1) + ' title"><div class="sq-days"><span class="lbl">Days</span>' + stepper(p + 'days', u.days || 0, 1, 150, 1) + '</div>' +
-    '<div class="sq-tools"><button class="btn sm ghost" data-act="seqMove" data-arg="' + u.id + '=-1"' + (k === 0 ? ' disabled' : '') + ' aria-label="Move this unit earlier">↑ Earlier</button><button class="btn sm ghost" data-act="seqMove" data-arg="' + u.id + '=1"' + (k === c.units.length - 1 ? ' disabled' : '') + ' aria-label="Move this unit later">↓ Later</button><button class="btn sm ghost danger" data-act="seqDel" data-arg="' + u.id + '">Delete</button></div></div>' +
-    '<div class="sq-body"><div class="stack"><div class="sec-h">Questions that drive this unit</div><p class="hint">Open questions worth arguing about, with no single right answer. For example: is a virus alive?</p>' + qs +
+    '<input class="field big grow" data-bind="' + p + 'title" value="' + esc(u.title) + '" aria-label="Unit ' + (k + 1) + ' title"><div class="sq-days"><span class="lbl">Days</span>' + a11yStep('Days in unit ' + (k + 1), p + 'days', u.days || 0, 1, 150, 1) + '</div>' +
+    '<div class="sq-tools"><button class="btn sm ghost" data-act="seqMove" data-arg="' + u.id + '=-1"' + (k === 0 ? ' disabled' : '') + ' aria-label="Move this unit earlier">↑ Earlier</button><button class="btn sm ghost" data-act="seqMove" data-arg="' + u.id + '=1"' + (k === c.units.length - 1 ? ' disabled' : '') + ' aria-label="Move this unit later">↓ Later</button><button class="btn sm ghost danger" data-act="seqDel" data-arg="' + u.id + '" aria-label="Delete unit ' + (k + 1) + '">Delete</button></div></div>' +
+    '<div class="sq-body"><div class="stack"><h3 class="sec-h">Questions that drive this unit</h3><p class="hint">Open questions worth arguing about, with no single right answer. For example: is a virus alive?</p>' + qs +
     '<div><button class="btn sm" data-act="seqQAdd" data-arg="' + u.id + '">+ Add a question</button></div></div>' +
-    '<div class="stack"><div class="sec-h">Goals in this unit ' + (hasLast || !mine.length ? '' : '<span class="tag warn">No lasting goal</span>') + '</div>' + (mine.length ? groups : '<p class="hint">No goals placed here yet.</p>') + place + '</div></div>' +
-    '<div class="sq-src"><div class="stack"><span class="lbl">Where the materials come from</span>' + seg(p + 'source', SOURCES.map((s) => [s[0], s[1], s[3]]), u.source) + '<p class="hint"><b>' + esc(src[1]) + '.</b> ' + esc(src[3]) + '</p>' +
+    '<div class="stack"><h3 class="sec-h">Goals in this unit ' + (hasLast || !mine.length ? '' : '<span class="tag warn">No lasting goal</span>') + '</h3>' + (mine.length ? groups : '<p class="hint">No goals placed here yet.</p>') + place + '</div></div>' +
+    '<div class="sq-src"><div class="stack"><span class="lbl" id="sq-srcl-' + u.id + '">Where the materials come from</span>' + a11yGroup('sq-srcl-' + u.id, seg(p + 'source', SOURCES.map((s) => [s[0], s[1], s[3]]), u.source)) + '<p class="hint"><b>' + esc(src[1]) + '.</b> ' + esc(src[3]) + '</p>' +
     '<p class="sq-hrs" data-live="seqhrs-' + u.id + '">Your preparation: about <b class="num">' + seqHrs(seqHours(u)) + ' hours</b> <span class="hint">(' + src[2] + ' hours for each class day, times ' + (u.days || 0) + ' days)</span></p></div>' +
     '<div class="stack"><label class="lbl" for="sq-sn-' + u.id + '">Which book, colleague or sites</label>' + field(p + 'sourceNote', u.sourceNote || '', 'id="sq-sn-' + u.id + '" placeholder="Optional"') +
     '<label class="lbl" for="sq-nt-' + u.id + '">Notes to yourself</label>' + area(p + 'note', u.note || '', 'id="sq-nt-' + u.id + '" rows="2" placeholder="Optional"') + '</div></div></section>';
@@ -62,7 +62,7 @@ function seqTrayHTML(c) {
   const opts = '<option value="">Put in a unit…</option>' + c.units.map((u, i) => '<option value="' + u.id + '">' + esc((i + 1) + '. ' + short(u.title || 'Untitled unit', 34)) + '</option>').join('');
   return '<section class="panel sq-tray"><h2>Goals not yet placed <small>' + free.length + '</small></h2><p class="hint">These goals are not in any unit, so no days are set aside for them. Place each one, or decide it does not belong in the course.</p>' +
     '<div class="sq-trayl">' + free.map((g) => '<div class="sq-tg"><span class="tag ' + (g.priority === 'lasting' ? 'ink' : '') + '">' + esc(optName(PRIORITIES, g.priority) || g.priority) + '</span><span class="sq-tgt" title="' + esc(g.text) + '">' + esc(short(g.text || 'Untitled goal', 90)) + '</span>' +
-      (c.units.length ? '<select class="pick" data-sequnitfor="' + g.id + '" aria-label="Put this goal in a unit">' + opts + '</select>' : '') + '</div>').join('') + '</div></section>';
+      (c.units.length ? '<select class="pick" data-sequnitfor="' + g.id + '" aria-label="Put ' + esc('“' + short(g.text || 'Untitled goal', 40) + '”') + ' in a unit">' + opts + '</select>' : '') + '</div>').join('') + '</div></section>';
 }
 
 function seqTotalHTML(c) {
@@ -81,7 +81,7 @@ VIEWS.sequence = {
       '<p>Scope is what the course covers. Sequence is the order. You cannot teach everything, so decide what gets the days.</p></div>' +
       '<div class="sq-narrow">' + mentor(MENTOR.sequence(c)) + '</div>' +
       '<section class="panel"><h2>The day budget <small>one segment for each unit</small></h2><div data-live="seqbudget">' + seqBudgetHTML(c) + '</div></section>' +
-      '<div class="sq-units">' + units + '</div><div><button class="btn pri" data-act="seqAdd">+ Add a unit</button></div>' +
+      '<h2 class="sq-sec">Units, in teaching order</h2><div class="sq-units">' + units + '</div><div><button class="btn pri" data-act="seqAdd">+ Add a unit</button></div>' +
       seqTrayHTML(c) +
       '<section class="panel"><h2>Preparation time <small>a rough estimate</small></h2><div data-live="seqtotal">' + seqTotalHTML(c) + '</div></section></div>';
   },
@@ -111,9 +111,10 @@ ACT.seqMove = (a, c) => { const p = a.split('='), i = c.units.findIndex((u) => u
 ACT.seqDel = (a, c) => {
   const u = unitOf(c, a); if (!u) return false;
   const nl = unitLessons(c, a).length, na = unitAssess(c, a).length, ng = unitGoals(c, a).length;
-  openModal('<h2>Delete “' + esc(short(u.title || 'Untitled unit', 50)) + '”?</h2><p>This unit has ' + plural(u.days || 0, 'day') + ' budgeted. Deleting it also deletes its <b>' + plural(nl, 'lesson') + '</b> and <b>' + plural(na, 'assessment') + '</b>.</p>' +
+  openModal('<div class="sq-mod"><h2 id="sq-del-h">Delete “' + esc(short(u.title || 'Untitled unit', 50)) + '”?</h2><p>This unit has ' + plural(u.days || 0, 'day') + ' budgeted. Deleting it also deletes its <b>' + plural(nl, 'lesson') + '</b> and <b>' + plural(na, 'assessment') + '</b>.</p>' +
     '<p class="hint">' + (ng ? plural(ng, 'goal') + ' in this unit stay in your course and move to the tray of goals not yet placed.' : 'No goals are placed in it.') + ' This cannot be undone.</p>' +
-    '<div class="foot"><button class="btn" data-act="closeModal">Keep the unit</button><button class="btn pri" data-act="seqDelYes" data-arg="' + a + '">Delete the unit</button></div>');
+    '<div class="foot"><button class="btn" data-act="closeModal">Keep the unit</button><button class="btn pri" data-act="seqDelYes" data-arg="' + a + '">Delete the unit</button></div></div>');
+  const keep = document.querySelector('#modal [data-act="closeModal"]'); if (keep) keep.focus({ preventScroll: true });
   return false;
 };
 ACT.seqDelYes = (a, c) => { closeModal(); removeUnit(c, a); if (App.sel.unit === a) { App.sel.unit = null; App.sel.lesson = null; } toast('Unit deleted.'); };

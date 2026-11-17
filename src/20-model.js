@@ -22,21 +22,59 @@ function newCourse(o) {
     v: COURSE_V, title: o.title || 'My course', subject: o.subject || 'other', grade: o.grade || '', teacher: o.teacher || '', seq: 1,
     school: { period: o.period || 50, perWeek: o.perWeek || 5, start: y + '-08-24', end: (y + 1) + '-06-04', off: defaultDaysOff(y), lost: 8, pace: 1, classSize: 18 },
     /* What the teacher says they want. The report compares the design to this, not to anyone else's idea of good teaching. */
-    intent: { active: 50, together: 25, high: 25, hw: 30 },
+    intent: { active: 50, together: 20, high: 20, hw: 30 },
     transfer: '', goals: [], units: [], lessons: [], assess: [],
     syllabus: { about: '', materials: '', weights: { major: 50, minor: 25, homework: 15, participation: 10 }, late: 'window', retake: 'majors', contact: '', help: '', honesty: '' },
     game: { warm: false, seen: {}, banners: {} }, snaps: [],
   };
 }
-/* Fills in anything an older saved course lacks. */
+/* Makes any course object safe to use: fills in what an older save lacks, and refuses or repairs anything a hand-edited or
+   hostile file could carry (ids go into the page as attributes, so they must be plain; every choice must be one the tool offers;
+   every number must be a sane number). Throws if the file cannot be a course. */
+const ID_OK = /^[A-Za-z][A-Za-z0-9_-]{0,23}$/;
 function migrate(c) {
-  const d = newCourse({});
-  for (const k in d) if (c[k] == null) c[k] = d[k];
-  for (const k in d.school) if (c.school[k] == null) c.school[k] = d.school[k];
-  for (const k in d.intent) if (c.intent[k] == null) c.intent[k] = d.intent[k];
-  for (const k in d.syllabus) if (c.syllabus[k] == null) c.syllabus[k] = d.syllabus[k];
-  for (const k in d.game) if (c.game[k] == null) c.game[k] = d.game[k];
-  c.lessons.forEach((l) => { l.blocks = l.blocks || []; l.days = l.days || 1; });
+  if (!c || typeof c !== 'object' || Array.isArray(c)) throw new Error('not a course');
+  const d = newCourse({}), obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), arr = (v) => (Array.isArray(v) ? v : []);
+  const str = (v, n) => (v == null ? '' : String(v)).slice(0, n || 4000), has = (tbl, id) => tbl.some((x) => x[0] === id);
+  const num = (v, lo, hi, dflt) => { v = +v; return isFinite(v) ? clamp(v, lo, hi) : dflt; }, int = (v, lo, hi, dflt) => Math.round(num(v, lo, hi, dflt));
+  const opt = (v, tbl, dflt) => (has(tbl, v) ? v : dflt), iso = (v, dflt) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : dflt);
+  for (const k of ['school', 'intent', 'syllabus', 'game']) { c[k] = obj(c[k]); for (const f in d[k]) if (c[k][f] == null) c[k][f] = d[k][f]; }
+  for (const k of ['goals', 'units', 'lessons', 'assess', 'snaps']) c[k] = arr(c[k]).filter((x) => x && typeof x === 'object');
+  const all = c.goals.concat(c.units, c.lessons, c.assess), seen = new Set();
+  for (const x of all) { if (!ID_OK.test(String(x.id)) || seen.has(x.id)) throw new Error('bad id'); seen.add(x.id); }
+  const gid = new Set(c.goals.map((g) => g.id)), uid = new Set(c.units.map((u) => u.id)), aid = new Set(c.assess.map((a) => a.id)), goals = (v, self) => arr(v).filter((g) => gid.has(g) && g !== self);
+  c.v = COURSE_V; c.title = str(c.title, 200); c.subject = opt(c.subject, SUBJECTS, 'other'); c.grade = str(c.grade, 60); c.teacher = str(c.teacher, 120); c.transfer = str(c.transfer);
+  const S = c.school; S.period = int(S.period, 10, 240, 50); S.perWeek = [5, 4, 3, 2.5, 2, 1].includes(+S.perWeek) ? +S.perWeek : 5; S.start = iso(S.start, d.school.start); S.end = iso(S.end, d.school.end);
+  S.off = arr(S.off).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(0, 400); S.lost = int(S.lost, 0, 80, 8); S.pace = [0.5, 1, 1.5].includes(+S.pace) ? +S.pace : 1; S.classSize = int(S.classSize, 6, 40, 18);
+  const I = c.intent; I.active = int(I.active, 0, 100, 50); I.together = int(I.together, 0, 100, 20); I.high = int(I.high, 0, 100, 20); I.hw = int(I.hw, 0, 240, 30);
+  for (const g of c.goals) { g.text = str(g.text); g.kind = opt(g.kind, GOAL_KINDS, 'knowledge'); g.priority = opt(g.priority, PRIORITIES, 'important'); g.level = int(g.level, 1, 4, 2); g.unit = uid.has(g.unit) ? g.unit : null; g.after = goals(g.after, g.id); }
+  for (const u of c.units) { u.title = str(u.title, 200); u.days = int(u.days, 0, 400, 10); u.questions = arr(u.questions).map((q) => str(q, 600)).slice(0, 12); u.source = opt(u.source, SOURCES, 'adopt'); u.sourceNote = str(u.sourceNote); u.note = str(u.note); }
+  c.assess = c.assess.filter((a) => uid.has(a.unit));
+  for (const a of c.assess) {
+    a.title = str(a.title, 200); a.kind = a.kind === 'major' ? 'major' : 'minor'; a.method = opt(a.method, METHODS, 'selected'); a.targets = arr(a.targets).filter((t) => has(TARGETS, t)); a.level = int(a.level, 1, 4, 2); a.goals = goals(a.goals);
+    a.min = int(a.min, 0, 600, 0); a.out = int(a.out, 0, 3000, 0); a.fb = opt(a.fb, FEEDBACKS, 'score'); a.back = int(a.back, 0, 60, 2); a.rubric = opt(a.rubric, RUBRICS, 'none'); a.retake = !!a.retake;
+    for (const f of ['role', 'audience', 'product', 'note']) a[f] = str(a[f]);
+  }
+  const live = new Set(c.assess.map((a) => a.id));
+  c.lessons = c.lessons.filter((l) => uid.has(l.unit));
+  for (const l of c.lessons) {
+    l.title = str(l.title, 200); l.days = int(l.days, 1, 60, 1); l.note = str(l.note); l.blocks = arr(l.blocks).filter((b) => b && typeof b === 'object');
+    for (const b of l.blocks) {
+      if (!ID_OK.test(String(b.id))) throw new Error('bad id');
+      b.move = MOVE_BY[b.move] ? b.move : 'lecture'; b.min = int(b.min, 1, 600, 10); b.goals = goals(b.goals); b.note = str(b.note);
+      const sw = {}, src = obj(b.sw); for (const s of MOVE_BY[b.move].sw || []) if (s.opts.some((o) => o.id === src[s.id])) sw[s.id] = src[s.id]; b.sw = sw;
+      if (b.lv != null) { b.lv = int(b.lv, 1, 4, 0); if (!b.lv) delete b.lv; } if (!['A', 'M', 'T'].includes(b.pu)) delete b.pu; if (!live.has(b.assess)) delete b.assess;
+    }
+    if (l.hw && typeof l.hw === 'object') { const h = l.hw; h.purpose = opt(h.purpose, HW_PURPOSES, 'practice'); h.kind = opt(h.kind, HW_KINDS, 'problems'); h.fb = opt(h.fb, HW_FEEDBACK, 'none'); h.graded = opt(h.graded, HW_GRADING, 'no'); h.min = int(h.min, 0, 600, 20); h.goals = goals(h.goals); h.device = !!h.device; } else l.hw = null;
+  }
+  const Y = c.syllabus; for (const f of ['about', 'materials', 'contact', 'help', 'honesty']) Y[f] = str(Y[f]); for (const f of ['late', 'retake']) Y[f] = /^[a-z]{1,20}$/.test(Y[f]) ? Y[f] : d.syllabus[f];
+  Y.weights = obj(Y.weights); for (const f of ['major', 'minor', 'homework', 'participation']) Y.weights[f] = int(Y.weights[f], 0, 100, d.syllabus.weights[f]);
+  const G = c.game; G.seen = obj(G.seen); G.banners = obj(G.banners); if (G.base) G.base = obj(G.base);
+  c.snaps = c.snaps.slice(0, 8).map((s) => ({ name: str(s.name, 60), days: num(s.days, 0, 1e4, 0), active: num(s.active, 0, 1, 0), together: num(s.together, 0, 1, 0), high: num(s.high, 0, 1, 0), hw: num(s.hw, 0, 1e4, 0), serious: int(s.serious, 0, 1e4, 0), grades: arr(s.grades).map((g) => str(g, 3)).slice(0, 8) }));
+  /* New ids must never repeat an old one, whatever the file says its counter is. */
+  let mx = 0; const bump = (id) => { const m = /(\d+)$/.exec(id); if (m) mx = Math.max(mx, +m[1]); }; all.forEach((x) => bump(x.id)); c.lessons.forEach((l) => l.blocks.forEach((b) => bump(b.id)));
+  c.seq = Math.max(int(c.seq, 1, 1e9, 1), mx + 1);
+  delete c.demo; delete c.warm;
   return c;
 }
 
@@ -76,7 +114,7 @@ function removeAssess(c, aid) { c.assess = c.assess.filter((a) => a.id !== aid);
 /* A block as it will actually run: the move, with the teacher's switches and overrides applied. */
 function blockEff(b) {
   const m = MOVE_BY[b.move] || MOVE_BY.lecture;
-  const e = { move: m, mix: m.mix, g: m.g, th: m.th, pu: m.pu, lv: m.lv, show: m.show || 0, fb: m.fb || 'none', talk: m.talk || 0, setup: m.setup || 0, cleanup: m.cleanup || 0, arr: m.arr || 'rows', retr: !!m.retr, think: !!m.think };
+  const e = { move: m, mix: m.mix, g: m.g, th: m.th, pu: m.pu, lv: m.lv, show: m.show || 0, fb: m.fb || 'none', talk: m.talk || 0, floor: m.floor || 0, setup: m.setup || 0, cleanup: m.cleanup || 0, arr: m.arr || 'rows', retr: !!m.retr, think: !!m.think };
   for (const s of m.sw || []) {
     const o = s.opts.find((x) => x.id === (b.sw && b.sw[s.id])) || s.opts[0];
     for (const k in o) if (k !== 'id' && k !== 'label') e[k] = o[k];
@@ -89,7 +127,8 @@ function blockEff(b) {
 /* Every date the class meets, in order. perWeek 5 = daily, 4 = Mon-Thu, 3 = Mon/Wed/Fri, 2 = Tue/Thu, 2.5 = every other school day. */
 function meetingDates(c) {
   const s = c.school, off = new Set(s.off), out = []; let k = 0;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(s.end || '') || s.end < s.start) return out;
+  /* A half-typed date (year 0202, or an end in 9999) must not make the page walk through centuries of days. */
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(s.end || '') || s.end < s.start || s.start < '2000-01-01' || s.end > '2100-12-31' || (dateOf(s.end) - dateOf(s.start)) / DAY_MS > 800) return out;
   const days = { 5: [1, 2, 3, 4, 5], 4: [1, 2, 3, 4], 3: [1, 3, 5], 2: [2, 4], 1: [3] }[s.perWeek];
   for (let d = dateOf(s.start), end = dateOf(s.end); d <= end; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
     const iso = isoOf(d), dow = d.getDay();

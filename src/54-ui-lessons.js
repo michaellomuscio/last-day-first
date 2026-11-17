@@ -13,12 +13,14 @@ function stripHTML(c, l, L) {
   let h = '<div class="strip" id="strip">';
   for (const s of L.segs) {
     if (s.over) h += '<span class="blk over" style="width:' + w(s.t1 - s.t0) + '" title="' + esc(s.what) + ': about ' + (s.t1 - s.t0) + ' min you did not plan for"></span>';
-    else { const b = l.blocks[s.i]; h += '<button class="blk' + (App.sel.block === b.id ? ' sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '" style="width:' + w(b.min) + ';background:' + famColor(s.mix) + '" title="' + esc(s.e.move.name + ', ' + b.min + ' min') + '"><b>' + esc(s.e.move.name) + '</b><i>' + b.min + '</i></button>'; }
+    else { const b = l.blocks[s.i], F = FAMILY_BY[dominantFam(s.mix)]; h += '<button class="blk' + (App.sel.block === b.id ? ' sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '" aria-pressed="' + (App.sel.block === b.id) + '" aria-label="' + esc(s.e.move.name + ', ' + b.min + ' minutes, mostly ' + F.name.toLowerCase()) + '" style="width:' + w(b.min) + ';background:' + F.color + ';color:' + F.text + '" title="' + esc(s.e.move.name + ', ' + b.min + ' min') + '"><b>' + esc(s.e.move.name) + '</b><i>' + b.min + '</i></button>'; }
   }
   if (L.total < L.period) h += '<span class="blk spare" style="width:' + w(L.period - L.total) + '" title="Unplanned time"></span>';
   h += '<span class="bell" style="left:' + w(L.period) + '" title="The bell"><i>bell</i></span><span class="head" id="playhead"></span></div><div class="ruler">';
   const stepMin = span > 70 ? 10 : 5; for (let m = 0; m <= span; m += stepMin) h += '<span style="left:' + w(m) + '">' + m + '</span>';
-  return h + '</div>';
+  /* The same blocks as a plain list: easier to tap on a phone and to read aloud. Shown only on narrow screens. */
+  h += '</div><ol class="blocklist">' + L.segs.filter((s) => !s.over).map((s) => { const b = l.blocks[s.i]; return '<li><button class="' + (App.sel.block === b.id ? 'sel' : '') + '" data-act="selBlock" data-arg="' + b.id + '"><i class="dot" style="background:' + famColor(s.mix) + '"></i><span>' + esc(s.e.move.name) + '</span><b>' + b.min + ' min</b></button></li>'; }).join('') + '</ol>';
+  return h;
 }
 function miniStrip(c, l) { const L = lessonLabel(c, l), span = Math.max(L.period, L.total, 1); return '<span class="mini">' + L.segs.map((s) => '<i style="width:' + (100 * (s.t1 - s.t0) / span).toFixed(2) + '%;background:' + (s.over ? 'var(--sunk)' : famColor(s.mix)) + '"></i>').join('') + '</span>'; }
 
@@ -41,7 +43,7 @@ function homeworkHTML(c, l) {
   if (!h) return '<div class="panel"><h2>Tonight’s homework <small>None set</small></h2><div class="row"><button class="btn sm" data-act="hwOn">Set homework for this lesson</button><span class="hint">No homework is a choice too.</span></div></div>';
   return '<div class="panel"><h2>Tonight’s homework <button class="btn sm ghost danger" data-act="hwOff">Remove</button></h2>' +
     '<div class="row wrap"><span class="lbl">It is for</span>' + seg(p + 'purpose', HW_PURPOSES, h.purpose) + '</div>' +
-    '<div class="row wrap"><span class="lbl">Minutes</span>' + stepper(p + 'min', h.min, 0, 180, 5) + '<span class="lbl">Kind</span><span style="width:190px">' + pick(p + 'kind', HW_KINDS, h.kind) + '</span></div>' +
+    '<div class="row wrap"><span class="lbl">Minutes</span>' + stepper(p + 'min', h.min, 0, 180, 5) + '<span class="lbl">Kind</span><span style="width:190px">' + pick(p + 'kind', HW_KINDS, h.kind, 'aria-label="Kind of homework"') + '</span></div>' +
     '<div class="stack"><span class="lbl">Which goals?</span>' + goalPicker(p + 'goals', unitGoals(c, u.id).concat(c.goals.filter((g) => g.unit !== u.id && h.goals.includes(g.id))), h.goals) + '</div>' +
     '<div class="row wrap"><span class="lbl">Feedback</span>' + seg(p + 'fb', HW_FEEDBACK, h.fb) + '</div><div class="row wrap"><span class="lbl">Grade</span>' + seg(p + 'graded', HW_GRADING, h.graded) + '<span class="lbl">Needs a device</span>' + seg(p + 'device', [[false, 'No'], [true, 'Yes']], h.device) + '</div></div>';
 }
@@ -55,20 +57,22 @@ VIEWS.lessons = {
     const u = curUnit(c);
     if (!u) return '<div class="ws"><div class="ws-head"><div class="eyebrow">Chapter 5</div><h1>Lessons</h1></div>' + empty('A lesson belongs to a unit. Lay out your units first.', '<button class="btn pri" data-act="go" data-arg="sequence">Go to Sequence</button>') + '</div>';
     const ls = unitLessons(c, u.id), l = curLesson(c), used = plannedDays(c, u.id);
-    const list = '<div class="lessons-list"><div class="stack"><span class="lbl">Unit</span>' + pick('ui::unit', c.units.map((x, k) => [x.id, (k + 1) + '. ' + x.title]), u.id) + '<span class="hint" data-live="days"><b class="num">' + used + '</b> of ' + u.days + ' days planned' + (used > u.days ? ' <span class="tag bad">over</span>' : '') + '</span></div>' +
+    const list = '<div class="lessons-list"><h1 class="sr">Lessons in ' + esc(u.title) + '</h1><div class="stack"><span class="lbl">Unit</span>' + pick('ui::unit', c.units.map((x, k) => [x.id, (k + 1) + '. ' + x.title]), u.id, 'aria-label="Unit"') + '<span class="hint" data-live="days"><b class="num">' + used + '</b> of ' + u.days + ' days planned' + (used > u.days ? ' <span class="tag bad">over</span>' : '') + '</span></div>' +
       '<div class="stack" data-live="list">' + ls.map((x, k) => { const L = lessonLabel(c, x); return '<button class="card lcard' + (l && x.id === l.id ? ' sel' : '') + '" data-act="selLesson" data-arg="' + x.id + '"><span class="row between"><b>' + (k + 1) + '. ' + esc(short(x.title, 30)) + '</b>' + (x.days > 1 ? tag(x.days + ' days') : '') + '</span>' + miniStrip(c, x) + '<span class="row between hint"><span>' + Math.round(L.total) + ' min' + (L.over > 0.5 ? ' <span class="tag bad">' + Math.round(L.over) + ' over</span>' : '') + '</span><span>' + (x.hw ? 'HW ' + x.hw.min + ' min' : '') + '</span></span></button>'; }).join('') + '</div>' +
-      '<details class="addl"' + (ls.length ? '' : ' open') + '><summary class="btn sm">+ Add a lesson</summary><div class="stack" style="padding-top:8px"><button class="card" data-act="addLesson" data-arg=""><b>Blank lesson</b><span class="hint">Start with an empty period.</span></button>' + PATTERNS.map((p) => '<button class="card" data-act="addLesson" data-arg="' + p.id + '"><b>' + p.name + '</b><span class="hint">' + p.does + '</span></button>').join('') + '</div></details></div>';
+      '<button class="btn' + (ls.length ? ' sm' : ' pri') + '" data-act="lessonChooser">+ Add a lesson</button></div>';
     if (!l) return '<div class="ws lessons"><div class="lgrid">' + list + '<div class="stack">' + '<div class="ws-head"><div class="eyebrow">Chapter 5 · ' + esc(u.title) + '</div><h1>Plan the days</h1><p>You know where this unit ends and how you will know students got there. Now build the class periods that get them there. Start with a ready-made shape and change it, or start blank.</p></div>' + mentor(MENTOR.lessons(c)) + '</div></div></div>';
     const L = lessonLabel(c, l), b = byId(l.blocks, App.sel.block), k = ls.indexOf(l);
     const editor = '<div class="stack editor"><div class="row"><input class="field big grow" data-bind="lesson:' + l.id + ':title" value="' + esc(l.title) + '" aria-label="Lesson title"><span class="lbl">Days</span>' + stepper('lesson:' + l.id + ':days', l.days, 1, 20, 1) + '</div>' +
       '<div class="row wrap"><button class="btn sm ghost" data-act="moveLesson" data-arg="-1" ' + (k === 0 ? 'disabled' : '') + '>↑ Earlier</button><button class="btn sm ghost" data-act="moveLesson" data-arg="1" ' + (k === ls.length - 1 ? 'disabled' : '') + '>↓ Later</button><button class="btn sm ghost" data-act="dupLesson">Copy this lesson</button><button class="btn sm ghost danger" data-act="delLesson">Delete</button><span class="grow"></span><span class="hint" data-live="fit">' + (L.over > 0.5 ? '<span class="tag bad">Runs ' + Math.round(L.over) + ' min past the bell</span>' : L.total ? '<span class="tag good">Fits, ' + Math.round(-L.over) + ' min spare</span>' : '') + '</span></div>' +
       '<div data-live="strip">' + stripHTML(c, l, L) + '</div>' + (l.blocks.length ? '' : '<p class="hint">Pick blocks below to fill the period. Hatched grey is time for settling, moving and packing up that the plan did not include.</p>') +
-      (b ? blockInspector(c, l, b) : l.blocks.length ? '<p class="hint">Click a block on the strip to change it.</p>' : '') + paletteHTML() + homeworkHTML(c, l) + '</div>';
+      (b ? blockInspector(c, l, b) : l.blocks.length ? '<p class="hint">Click a block on the strip to change it.</p>' : '') + paletteHTML() + homeworkHTML(c, l) +
+      '<div class="panel"><h2>Materials and notes <small>Printed on the lesson plan</small></h2>' + area('lesson:' + l.id + ':note', l.note || '', 'placeholder="What to have ready, the text or problem set, where the handouts are"') + '</div></div>';
     const fams = FAMILIES.filter((f) => (L.fam[f.id] || 0) > 0.05);
-    const obs = '<div class="stack observer"><div class="room"><canvas id="room" width="680" height="440" aria-label="The classroom during this lesson"></canvas><div class="roomcap" id="roomcap"></div></div>' +
+    const obs = '<div class="stack observer"><div class="room"><canvas id="room" width="680" height="440" role="img" aria-label="The classroom during this lesson" aria-describedby="roomcap"></canvas><div class="roomcap" id="roomcap"></div></div>' +
       '<div class="row"><button class="btn sm pri" data-act="play" id="playbtn">▶ Play the period</button><input type="range" id="scrub" min="0" max="' + Math.max(1, Math.round(L.total * 10)) + '" value="' + Math.round(App.play.t * 10) + '" aria-label="Minute of the period"></div>' +
       '<div class="legend" data-live="legend">' + fams.map((f) => '<span><i class="dot" style="background:' + f.color + '"></i>' + f.short + '</span>').join('') + '</div>' +
-      '<div data-live="label">' + labelHTML(L, { title: l.title, c, scope: 'lesson' }) + '</div></div>';
+      '<div data-live="lmentor">' + mentor(MENTOR.lessons(c)) + '</div>' +
+      '<div data-live="label">' + labelHTML(L, { title: l.title, c, scope: 'lesson' }) + '</div><button class="btn sm ghost" data-act="glossary">What do these words mean?</button></div>';
     return '<div class="ws lessons">' + (c.warm && typeof warmPanel === 'function' ? warmPanel(c, l, L) : '') + '<div class="lgrid">' + list + editor + obs + '</div></div>';
   },
   after() { roomSync(); const s = $('scrub'); if (s) s.oninput = () => { App.play.t = +s.value / 10; App.play.on = false; roomSync(); }; },
@@ -90,7 +94,13 @@ MENTOR.lessons = (c) => {
 
 ACT.selLesson = (a) => { App.sel.lesson = a; App.sel.block = null; App.play.t = 0; App.play.on = false; };
 ACT.selBlock = (a, c) => { App.sel.block = App.sel.block === a ? null : a; const l = curLesson(c), L = lessonLabel(c, l), s = L.segs.find((x) => x.block === a); if (s) { App.play.t = s.t0 + 0.01; App.play.on = false; } };
-ACT.addLesson = (a, c) => { const u = curUnit(c), l = addLesson(c, u.id, { title: a ? PATTERNS.find((p) => p.id === a).name : 'New lesson' }); if (a) applyPattern(c, l, a); const gs = unitGoals(c, u.id); App.sel.lesson = l.id; App.sel.block = null; App.play.t = 0; };
+ACT.lessonChooser = () => { openModal('<h2>Add a lesson</h2><p class="hint">Start from a shape you recognise and change it, or start with an empty period. Every block can be changed afterwards.</p><div class="shapes"><button class="card" data-act="addLesson" data-arg=""><b>Blank lesson</b><span class="hint">An empty period.</span></button>' + PATTERNS.map((p) => '<button class="card" data-act="addLesson" data-arg="' + p.id + '"><b>' + p.name + '</b><span class="hint">' + p.does + '</span></button>').join('') + '</div><div class="foot"><button class="btn" data-act="closeModal">Cancel</button></div>'); return false; };
+ACT.addLesson = (a, c) => {
+  const u = curUnit(c), n = unitLessons(c, u.id).length, l = addLesson(c, u.id, { title: 'Lesson ' + (n + 1) }); if (a) applyPattern(c, l, a);
+  /* Blocks from a shape start out tied to the unit's first goal, so nothing is orphaned before the teacher has looked. */
+  const g = unitGoals(c, u.id)[0]; if (g) l.blocks.forEach((b) => { if (MOVE_BY[b.move].pu !== 'N') b.goals = [g.id]; });
+  App.sel.lesson = l.id; App.sel.block = null; App.play.t = 0; closeModal();
+};
 ACT.dupLesson = (a, c) => { const l = curLesson(c), n = clone(l); n.id = newId(c, 'L'); n.title = l.title + ' (copy)'; n.blocks.forEach((b) => (b.id = newId(c, 'B'))); c.lessons.splice(c.lessons.indexOf(l) + 1, 0, n); App.sel.lesson = n.id; App.sel.block = null; };
 ACT.delLesson = (a, c) => { const l = curLesson(c); c.lessons = c.lessons.filter((x) => x !== l); App.sel.lesson = null; App.sel.block = null; };
 ACT.moveLesson = (a, c) => { const l = curLesson(c), ls = unitLessons(c, l.unit), k = ls.indexOf(l), o = ls[k + +a]; if (!o) return; const i = c.lessons.indexOf(l), j = c.lessons.indexOf(o); c.lessons[i] = o; c.lessons[j] = l; };
@@ -142,7 +152,7 @@ function roomDraw(dt) {
   let arr = seg && seg.arr; if (seg && !arr) { const nx = L.segs.find((s) => s.t0 >= seg.t1 && s.arr); arr = nx ? nx.arr : 'rows'; }
   const seats = roomSeats(arr || 'rows', n);
   if (Room.pos.length !== n) Room.pos = seats.map((p) => [p[0], p[1]]);
-  const k = dt ? clamp(dt * 3.2, 0, 1) : 1; for (let i = 0; i < n; i++) { Room.pos[i][0] += (seats[i][0] - Room.pos[i][0]) * k; Room.pos[i][1] += (seats[i][1] - Room.pos[i][1]) * k; }
+  const k = dt && !REDUCED_MOTION ? clamp(dt * 3.2, 0, 1) : 1; for (let i = 0; i < n; i++) { Room.pos[i][0] += (seats[i][0] - Room.pos[i][0]) * k; Room.pos[i][1] += (seats[i][1] - Room.pos[i][1]) * k; }
   x.clearRect(0, 0, W, H); x.fillStyle = '#fbf8f0'; x.fillRect(0, 0, W, H);
   x.strokeStyle = '#e7dfcd'; x.lineWidth = 1; for (let g = 40; g < W; g += 40) { x.beginPath(); x.moveTo(g, 0); x.lineTo(g, H); x.stroke(); } for (let g = 40; g < H; g += 40) { x.beginPath(); x.moveTo(0, g); x.lineTo(W, g); x.stroke(); }
   x.fillStyle = '#24372f'; x.fillRect(W * 0.2, 14, W * 0.6, 26); x.fillStyle = '#17171b'; x.fillRect(W * 0.2, 40, W * 0.6, 4);

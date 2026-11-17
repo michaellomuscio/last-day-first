@@ -1,5 +1,9 @@
 /* Syllabus: form on the left, the document on a sheet of paper on the right. */
-.ws.syl { max-width: none }
+.ws.syl { --ink3: #5e5a63; --warn: #8a5700; --red: #b8301c; --bad: #b0301d; --good: #26703f }
+.ws.syl { max-width: none; grid-template-columns: minmax(0, 1fr) }
+.ws.syl .panel { grid-template-columns: minmax(0, 1fr) }
+.ws.syl .panel > h2 { flex-wrap: wrap }
+.a11y-g { display: inline-block; max-width: 100% }
 .syl-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px; align-items: start }
 .syl-form { gap: 18px }
 .syl-w { display: grid; grid-template-columns: minmax(0, 1fr) auto 54px; gap: 12px; align-items: center; padding: 6px 0; border-top: 1.5px solid var(--line) }
@@ -11,10 +15,10 @@
 .syl-side { display: grid; gap: 10px; position: sticky; top: 0; align-self: start; min-width: 0 }
 .syl-sheet { background: #fff; border: 1.5px solid var(--line2); box-shadow: 6px 6px 0 var(--ink); padding: 34px 38px; max-height: calc(100vh - 220px); overflow-y: auto; min-width: 0 }
 .syl-doc { font: 400 14px/1.5 Georgia, 'Times New Roman', serif; color: #000; min-width: 0; overflow-wrap: anywhere }
-.syl-doc h1, .syl-doc h2, .syl-doc h3, .syl-doc th, .syl-doc .sub { font-family: Helvetica, Arial, sans-serif }
-.syl-doc h1 { font-size: 26px; line-height: 1.1; letter-spacing: -.01em; margin: 0 0 6px; border-bottom: 3px solid #000; padding-bottom: 6px }
-.syl-doc h2 { font-size: 16px; margin: 20px 0 6px; border-bottom: 1px solid #000; padding-bottom: 2px }
-.syl-doc h3 { font-size: 13.5px; margin: 10px 0 2px }
+.syl-doc h3, .syl-doc h4, .syl-doc h5, .syl-doc th, .syl-doc .sub { font-family: Helvetica, Arial, sans-serif }
+.syl-doc h3 { font-size: 26px; line-height: 1.1; letter-spacing: -.01em; margin: 0 0 6px; border-bottom: 3px solid #000; padding-bottom: 6px }
+.syl-doc h4 { font-size: 16px; margin: 20px 0 6px; border-bottom: 1px solid #000; padding-bottom: 2px }
+.syl-doc h5 { font-size: 13.5px; margin: 10px 0 2px }
 .syl-doc p { margin: 4px 0 8px }
 .syl-doc .sub { color: #333; margin: 0 0 10px }
 .syl-doc ul, .syl-doc ol { margin: 4px 0 10px; padding-left: 22px }
@@ -26,5 +30,13 @@
 .syl-doc tr.wt th, .syl-doc tr.wt td { font-weight: 700; border-top: 3px double #000 }
 .syl-doc dt { font: 700 13px Helvetica, Arial, sans-serif; margin-top: 4px } .syl-doc dd { margin: 0 0 0 16px }
 .syl-doc .muted { color: #555; font-size: 12px }
+@media (pointer: coarse), (max-width: 700px) {
+  .ws.syl .btn, .ws.syl .seg button, .ws.syl .chip, .ws.syl .pick, .ws.syl .field, .ws.syl .step button, .ws.syl .step input { min-height: 40px }
+  .ws.syl .btn, .ws.syl .seg button, .ws.syl .step button { min-width: 40px }
+  .ws.syl .seg button { display: inline-flex; align-items: center; justify-content: center }
+  .ws.syl .step input { width: 56px }
+}
 @media (max-width: 1100px) { .syl-grid { grid-template-columns: minmax(0, 1fr) } .syl-side { position: static } .syl-sheet { max-height: none } }
 @media (max-width: 800px) { .syl-sheet { padding: 20px 18px } .syl-w { grid-template-columns: minmax(0, 1fr) auto } .syl-w .hint { display: none } }
+
+.syl-draft { padding: 9px 12px; border: 2px solid var(--bad); border-left-width: 6px; background: var(--card); font-size: 13.5px; margin-bottom: 10px } .syl-draft.ok { border-color: var(--good) }

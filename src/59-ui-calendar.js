@@ -2,7 +2,9 @@
    Click a weekday to make it a day off. Every top-level name here starts with cal. */
 
 /* Twelve unit colors. Mid-dark so white numbers stay readable, and distinct enough to tell apart in a black and white print by their order in the legend. */
-const CAL_COLORS = ['#2d62ad', '#b5502a', '#2e7d4f', '#7a4fa3', '#9c6d00', '#1f7f86', '#a8325e', '#5b6f1e', '#44546a', '#c0601a', '#6a3d2a', '#3b82c4'];
+const CAL_COLORS = ['#2d62ad', '#b5502a', '#2e7d4f', '#7a4fa3', '#946700', '#1f7f86', '#a8325e', '#5b6f1e', '#44546a', '#a85616', '#6a3d2a', '#2b6fb0'];   // each reaches 4.5 to 1 against white text
+/* The one day that can be reached with Tab. Arrow keys move it. */
+const calUI = { cur: null, tab: null };
 const calUnitColor = (i) => CAL_COLORS[((i % CAL_COLORS.length) + CAL_COLORS.length) % CAL_COLORS.length];
 const CAL_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const calIsoOk = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !isNaN(dateOf(s).getTime());
@@ -20,14 +22,14 @@ function calModel(c) {
 
 function calCell(c, M, iso) {
   const d = dateOf(iso), n = d.getDate();
-  if (iso < c.school.start || iso > c.school.end) return '<span class="cal-d out" aria-hidden="true">' + n + '</span>';
-  const i = M.idx[iso], off = M.off.has(iso), btn = (cls, style, title, inner) => '<button class="cal-d ' + cls + '" data-act="calDay" data-arg="' + iso + '"' + (style ? ' style="' + style + '"' : '') + ' title="' + esc(title) + '" aria-label="' + esc(title) + '">' + n + (inner || '') + '</button>';
+  if (iso < c.school.start || iso > c.school.end) return '<span class="cal-d gap" aria-hidden="true"></span>';
+  const i = M.idx[iso], off = M.off.has(iso), btn = (cls, style, title, inner) => '<button class="cal-d ' + cls + '" data-act="calDay" data-arg="' + iso + '"' + (style ? ' style="' + style + '"' : '') + ' tabindex="' + (iso === calUI.tab ? 0 : -1) + '" title="' + esc(title) + '" aria-label="' + esc(title) + '"><span class="cal-n" aria-hidden="true">' + n + '</span>' + (inner || '') + '</button>';
   if (off) return btn('off', '', calLong(iso) + '. Day off. Click to make it a school day again.');
   if (i == null) return btn('none', '', calLong(iso) + '. Your class does not meet. Click to mark a day off.');
   const day = M.days[i];
   if (!day) return btn('buf', '', calLong(iso) + '. Open day, after your last unit. Click to mark a day off.');
   const u = unitOf(c, day.unit), k = c.units.indexOf(u);
-  return btn('u', 'background:' + calUnitColor(k), calLong(iso) + '. Unit ' + (k + 1) + ': ' + (u ? u.title : '') + (day.lesson ? '. Lesson: ' + day.lesson.title : '. No lesson planned yet') + '. Click to mark a day off.', day.lesson ? '<i class="cal-mk"></i>' : '');
+  return btn('u', 'background:' + calUnitColor(k), calLong(iso) + '. Unit ' + (k + 1) + ': ' + (u ? u.title : '') + (day.lesson ? '. Lesson: ' + day.lesson.title : '. No lesson planned yet') + '. Click to mark a day off.', '<span class="cal-un" aria-hidden="true">' + (k + 1) + '</span>' + (day.lesson ? '<i class="cal-mk"></i>' : ''));
 }
 function calMonth(c, M, y, m) {
   const last = new Date(y, m + 1, 0).getDate(); let cells = [], col = 0;
@@ -36,11 +38,14 @@ function calMonth(c, M, y, m) {
     if (!cells.length) for (let k = 0; k < dow - 1; k++) cells.push('<span class="cal-d gap"></span>');
     cells.push(calCell(c, M, isoOf(d)));
   }
-  return '<div class="cal-m"><h3>' + MONTH_NAMES[m] + ' <small>' + y + '</small></h3><div class="cal-g">' + ['M', 'T', 'W', 'T', 'F'].map((x) => '<b>' + x + '</b>').join('') + cells.join('') + '</div></div>';
+  return '<div class="cal-m"><h3>' + MONTH_NAMES[m] + ' <small>' + y + '</small></h3><div class="cal-g" role="group" aria-label="' + MONTH_NAMES[m] + ' ' + y + '">' + ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((x) => '<b aria-hidden="true">' + x[0] + '</b>').join('') + cells.join('') + '</div></div>';
 }
 function calGridsHTML(c, M) {
   if (!M.ok) return '<p class="hint">Pick a first day and a last day above. The calendar appears here.</p>';
   const a = dateOf(c.school.start), b = dateOf(c.school.end), out = [];
+  /* Roving tab stop: the remembered day if it can still be reached, otherwise the first weekday of the year. */
+  const okDay = (iso) => iso && iso >= c.school.start && iso <= c.school.end && dateOf(iso).getDay() % 6 !== 0;
+  if (okDay(calUI.cur)) calUI.tab = calUI.cur; else { const d = dateOf(c.school.start); while (d.getDay() % 6 === 0) d.setDate(d.getDate() + 1); calUI.tab = isoOf(d); }
   let y = a.getFullYear(), m = a.getMonth(), guard = 0;
   while ((y < b.getFullYear() || (y === b.getFullYear() && m <= b.getMonth())) && guard++ < 18) { out.push(calMonth(c, M, y, m)); if (++m > 11) { m = 0; y++; } }
   return '<div class="cal-months">' + out.join('') + '</div>';
@@ -56,10 +61,10 @@ function calLegendHTML(c, M) {
   if (!M.ok) return '';
   const rows = c.units.map((u, k) => {
     const s = M.spans[k], span = !s.start ? 'No dates left' : niceDate(s.start) + ' to ' + niceDate(s.end);
-    return '<li><i class="cal-sw" style="background:' + calUnitColor(k) + '"></i><b>' + (k + 1) + '. ' + esc(u.title || 'Untitled unit') + '</b><span>' + span + '</span><span class="num">' + plural(u.days || 0, 'day') + '</span>' + (s.fits ? '' : '<span class="tag bad">Runs past the last day</span>') + '</li>';
+    return '<li><i class="cal-sw" style="background:' + calUnitColor(k) + '" aria-hidden="true"><em>' + (k + 1) + '</em></i><b>' + (k + 1) + '. ' + esc(u.title || 'Untitled unit') + '</b><span>' + span + '</span><span class="num">' + plural(u.days || 0, 'day') + '</span>' + (s.fits ? '' : '<span class="tag bad">Runs past the last day</span>') + '</li>';
   }).join('');
-  const keys = '<ul class="cal-keys"><li><i class="cal-sw off"></i>Day off</li><li><i class="cal-sw buf"></i>Open day after your last unit</li><li><i class="cal-sw none"></i>Class does not meet</li><li><i class="cal-sw u"><i class="cal-mk"></i></i>A lesson is planned</li></ul>';
-  return '<div class="stack"><div class="sec-h">Your units on the calendar</div>' + (rows ? '<ul class="cal-legend">' + rows + '</ul>' : '<p class="hint">No units yet. Lay them out under Sequence and they fill in here.</p>') + keys + '</div>';
+  const keys = '<ul class="cal-keys"><li><i class="cal-sw off"></i>Day off</li><li><i class="cal-sw buf"></i>Open day after your last unit</li><li><i class="cal-sw none"></i>Class does not meet</li><li><i class="cal-sw u"><i class="cal-mk"></i></i>A lesson is planned</li><li><span class="cal-un-key" aria-hidden="true">2</span>The small number in a class day is its unit</li></ul>';
+  return '<div class="stack"><h2 class="sec-h">Your units on the calendar</h2>' + (rows ? '<ul class="cal-legend">' + rows + '</ul>' : '<p class="hint">No units yet. Lay them out under Sequence and they fill in here.</p>') + keys + '</div>';
 }
 
 VIEWS.calendar = {
@@ -67,13 +72,13 @@ VIEWS.calendar = {
   render(c) {
     const S = c.school, M = calModel(c), off = (S.off || []).length;
     const settings = '<div class="panel"><h2>School settings <small>Change any of these and the year below updates</small></h2><div class="cal-set">' +
-      '<div class="stack"><span class="lbl">First day</span><input type="date" class="field" data-bind="school::start" value="' + esc(S.start) + '" aria-label="First day of school"></div>' +
-      '<div class="stack"><span class="lbl">Last day</span><input type="date" class="field" data-bind="school::end" value="' + esc(S.end) + '" aria-label="Last day of school"></div>' +
-      '<div class="stack"><span class="lbl">Period length, in minutes</span><span>' + stepper('school::period', S.period, 20, 150, 5) + '</span></div>' +
-      '<div class="stack"><span class="lbl">Class size</span><span>' + stepper('school::classSize', S.classSize, 1, 40, 1) + '</span></div>' +
-      '<div class="stack wide2"><span class="lbl">How often the class meets</span>' + seg('school::perWeek', [[5, 'Every day'], [2.5, 'Every other day'], [4, '4 days (Mon to Thu)'], [3, '3 days (Mon, Wed, Fri)'], [2, '2 days (Tue, Thu)']], S.perWeek) + '</div>' +
-      '<div class="stack wide2"><span class="lbl">Days you expect to lose</span><span class="row wrap">' + stepper('school::lost', S.lost, 0, 60, 1) + '<span class="hint">to assemblies, drills, testing and weather. Most schools lose more than new teachers expect.</span></span></div>' +
-      '<div class="stack wide2"><span class="lbl">How quickly your classes get moving</span>' + seg('school::pace', [[0.5, 'Quickly'], [1, 'Typical'], [1.5, 'Slowly']], S.pace) +
+      '<div class="stack"><label class="lbl" for="cal-start">First day</label><input id="cal-start" type="date" class="field" data-bind="school::start" value="' + esc(S.start) + '" aria-label="First day of school"></div>' +
+      '<div class="stack"><label class="lbl" for="cal-end">Last day</label><input id="cal-end" type="date" class="field" data-bind="school::end" value="' + esc(S.end) + '" aria-label="Last day of school"></div>' +
+      '<div class="stack"><span class="lbl">Period length, in minutes</span><span>' + a11yStep('Period length in minutes', 'school::period', S.period, 20, 150, 5) + '</span></div>' +
+      '<div class="stack"><span class="lbl">Class size</span><span>' + a11yStep('Class size', 'school::classSize', S.classSize, 1, 40, 1) + '</span></div>' +
+      '<div class="stack wide2"><span class="lbl" id="cal-l-meets">How often the class meets</span>' + a11yGroup('cal-l-meets', seg('school::perWeek', [[5, 'Every day'], [2.5, 'Every other day'], [4, '4 days (Mon to Thu)'], [3, '3 days (Mon, Wed, Fri)'], [2, '2 days (Tue, Thu)']], S.perWeek)) + '</div>' +
+      '<div class="stack wide2"><span class="lbl">Days you expect to lose</span><span class="row wrap">' + a11yStep('Days you expect to lose', 'school::lost', S.lost, 0, 60, 1) + '<span class="hint">to assemblies, drills, testing and weather. Most schools lose more than new teachers expect.</span></span></div>' +
+      '<div class="stack wide2"><span class="lbl" id="cal-l-pace">How quickly your classes get moving</span>' + a11yGroup('cal-l-pace', seg('school::pace', [[0.5, 'Quickly'], [1, 'Typical'], [1.5, 'Slowly']], S.pace)) +
       '<span class="hint">This scales the setup and moving time the lesson builder adds, such as settling in and getting into groups. It is an assumption. No published figure exists, so use your own sense of your classes.</span></div></div></div>';
     const head = '<div class="ws-head"><div class="eyebrow">Chapter 4</div><h1>Pacing guide</h1><p>The year is shorter than it looks. Put your units on real dates, and leave room for the days that vanish.</p></div>';
     return '<div class="ws cal">' + head + settings + '<div data-live="stats">' + calStatsHTML(c, M) + '</div>' +
@@ -82,8 +87,22 @@ VIEWS.calendar = {
       '<div class="panel" data-live="legend">' + calLegendHTML(c, M) + '</div></div>';
   },
 };
-ACT.calDay = (iso, c) => { const a = c.school.off = c.school.off || [], k = a.indexOf(iso); if (k >= 0) a.splice(k, 1); else a.push(iso); a.sort(); };
+ACT.calDay = (iso, c) => { calUI.cur = iso;  const a = c.school.off = c.school.off || [], k = a.indexOf(iso); if (k >= 0) a.splice(k, 1); else a.push(iso); a.sort(); };
 ACT.calHolidays = (a, c) => { if (!calIsoOk(c.school.start)) { toast('Pick a first day first.'); return false; } c.school.off = defaultDaysOff(calStartYear(c)); };
+/* One tab stop for the whole year. Arrow keys move by a day (left, right) or a week (up, down); Home and End jump to the first and last day.
+   Enter or space press the focused day like any button. Moving the tab stop never redraws, so focus is not lost. */
+document.addEventListener('focusin', (ev) => {
+  const el = ev.target; if (!el.classList || !el.classList.contains('cal-d') || el.tagName !== 'BUTTON') return;
+  document.querySelectorAll('.cal-d[tabindex="0"]').forEach((x) => { if (x !== el) x.setAttribute('tabindex', '-1'); });
+  el.setAttribute('tabindex', '0'); calUI.cur = el.dataset.arg;
+});
+document.addEventListener('keydown', (ev) => {
+  const el = ev.target; if (!el.classList || !el.classList.contains('cal-d') || el.tagName !== 'BUTTON' || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  const all = Array.from(document.querySelectorAll('button.cal-d')), i = all.indexOf(el); if (i < 0) return;
+  const to = { ArrowLeft: i - 1, ArrowRight: i + 1, ArrowUp: i - 5, ArrowDown: i + 5, Home: 0, End: all.length - 1 }[ev.key];
+  if (to == null) return;
+  ev.preventDefault(); const t = all[Math.max(0, Math.min(all.length - 1, to))]; if (t) { t.focus(); t.scrollIntoView({ block: 'nearest' }); }
+});
 ACT.calClear = (a, c) => { c.school.off = []; };
 
 MENTOR.calendar = (c) => {

@@ -38,6 +38,12 @@ homework = { purpose: practice|review|prepare|extend|finish, kind: problems|read
 
 Option tables with labels and one-line definitions are in `src/10-codes.js`: `CODES` (18 things a student can be doing), `FAMILIES` (the 9 label lines, with colors), `ICAP`, `THINKERS`, `GROUPINGS`, `PURPOSES` (A take in, M make meaning, T transfer, N routine), `LEVELS`, `GOAL_KINDS`, `PRIORITIES`, `METHODS`, `TARGETS`, `FEEDBACKS`, `RUBRICS`, `HW_*`, `SOURCES`, `SUBJECTS`, `MOVES` (45 classroom moves with tags and switches), `PATTERNS` (ready-made lesson shapes).
 
+`migrate(c)` makes any course object safe: it fills in missing fields, coerces every choice and number, and throws if ids are not plain (`ID_OK`). Everything loaded from storage or a file goes through it.
+
+`blockEff(block)` also returns `floor` (share of the block in which students hold the floor in front of the whole class; the observer divides it by class size) and `think` (students who are listening, reading or watching have a task). Many working moves carry a `coach` switch whose `respond` option sets feedback to 'now'.
+
+`gradeCourse(c, findings)` returns `{ areas, built, planned, enough }`; areas that depend on lessons are null until `enough`.
+
 Model helpers: `newCourse`, `migrate`, `addGoal/addUnit/addLesson/addBlock/addAssess`, `newHomework`, `applyPattern`, `removeUnit/removeGoal/removeAssess`, `unitOf/goalOf/lessonOf/assessOf`, `unitLessons/unitAssess/unitGoals`, `plannedDays`, `blockEff(block)` (the move with switches applied: `{move, mix, g, th, pu, lv, show, fb, talk, setup, cleanup, arr, retr, think}`), `meetingDates(c)`, `availableDays(c)`, `budgetedDays(c)`, `unitSpans(c)`. `demoCourse()` returns a small complete Biology course for tests and previews.
 
 ## The observer (`src/30-analyze.js`)

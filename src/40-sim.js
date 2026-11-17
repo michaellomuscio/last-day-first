@@ -133,7 +133,7 @@ function simulate(c, opts) {
   students.forEach((s, i) => { const t = s.traits; prior[i] = t.prior; pace[i] = t.pace; attend[i] = t.attend; hwRel[i] = t.hw; speaks[i] = t.speaks ? 1 : 0; device[i] = t.device ? 1 : 0; });
   const met = new Float64Array(N), rec = new Float64Array(N), stab = new Float64Array(N), lnk = new Float64Array(N), use = new Float64Array(N), last = new Float64Array(N).fill(-1e9), pg = new Float64Array(N);
   for (let s = 0; s < S; s++) for (let g = 0; g < G; g++) pg[s * G + g] = clamp(prior[s] + (hash(seed, s * 131 + g, 7) - 0.5) * 0.3, 0, 1);
-  const seenSum = new Float64Array(G), seenN = new Float64Array(G), taughtDays = new Float64Array(G);
+  const inMin = new Float64Array(G), actMin = new Float64Array(G), seenSum = new Float64Array(G), seenN = new Float64Array(G), taughtDays = new Float64Array(G);
   const fat = new Float64Array(S), pres = new Float64Array(S), att = new Float64Array(S);
   const hwDone = new Float64Array(S), hwAsk = new Float64Array(S);
   const gsR = new Float64Array(G), gsL = new Float64Array(G), gsU = new Float64Array(G), gsM = new Float64Array(G);
@@ -148,14 +148,14 @@ function simulate(c, opts) {
     const ix = s * G + gi, pr = pg[ix], lrn = pace[s] * a, pf = 0.65 + 0.7 * pr;          // R2
     const gap = t - last[ix], spF = gap > 1e8 ? 0 : 0.25 + 0.75 * (1 - Math.exp(-gap / 6)), r0 = rec[ix];   // R10, massed repeats keep a small floor
     let touched = false;
-    if (K.input > 0.05 && dose > 0) {                                                        // R1, R3
+    if (K.input > 0.12 && dose > 0) {                                                        // R1, R3
       const u = dose * K.input * K.check * pf * lrn;
       met[ix] = 1 - (1 - met[ix]) * (1 - Math.min(0.95, u * 1.5));
       rec[ix] += Math.min(1 - rec[ix], 0.55 * u);
       stab[ix] += (0.06 * u + (r0 > 0.2 ? 0.05 * spF * Math.min(u, 1) : 0)) * (1 - stab[ix]);  // understanding makes memory a little more durable; re-meeting it after a gap more so
       touched = true;
     } else if (K.disc > 0.05 && dose > 0) {                                                  // R4: no input, so small and capped
-      const cap = 0.25 + 0.4 * pr + (K.fbNow ? 0.15 : 0), u = dose * K.disc * 0.25 * pf * lrn * (K.th === 'shared' ? 1.3 : 1);
+      const cap = 0.15 + 0.3 * pr + (K.fbNow ? 0.1 : 0), u = dose * K.disc * 0.25 * pf * lrn * (K.th === 'shared' ? 1.3 : 1);
       if (rec[ix] < cap) { rec[ix] += Math.min(cap - rec[ix], 0.5 * u * (1 - rec[ix])); met[ix] = Math.max(met[ix], Math.min(0.5, 1 - (1 - met[ix]) * (1 - u))); touched = true; /* never fully met */ }
     }
     if (K.ret > 0 && dR > 0 && met[ix] > 0.1) {                                              // R7 to R10
@@ -168,14 +168,14 @@ function simulate(c, opts) {
     if (K.lw > 0 && dose > 0 && met[ix] > 0.2) {                                             // R12, R13, R14
       const pl = pre[gi]; let H;
       if (!pl.length) H = 0.55 + 0.4 * pr; else { let h = 0; for (let k = 0; k < pl.length; k++) h += rec[s * G + pl[k]]; H = 0.9 * h / pl.length + 0.1 * pr; }
-      const part = K.vol ? 0.5 + 0.5 * speaks[s] : K.grp && !K.acct ? 0.55 + 0.45 * speaks[s] : 1;
+      const part = K.vol ? 0.65 + 0.35 * speaks[s] : K.grp && !K.acct ? 0.85 + 0.15 * speaks[s] : 1;
       const gL = 0.6 * dose * K.lw * H * Math.min(1, rec[ix] * 1.6) * met[ix] * part * lrn * (1 - lnk[ix]);
       lnk[ix] += gL;
       for (let k = 0; k < pl.length; k++) { const jx = s * G + pl[k]; if (rec[jx] > 0.3) lnk[jx] += 0.35 * gL * (1 - lnk[jx]); }   // the older idea gains a link too
       touched = true;
     }
     if (K.uw > 0 && dose > 0 && met[ix] > 0.2) {                                             // R15
-      const part = K.vol ? 0.5 + 0.5 * speaks[s] : K.grp && !K.acct ? 0.55 + 0.45 * speaks[s] : 1;
+      const part = 1;
       use[ix] += 0.4 * dose * K.uw * lnk[ix] * (0.3 + 0.7 * rec[ix]) * met[ix] * part * lrn * (1 - use[ix]);
     }
     const capU = 0.9 * lnk[ix] + (gSkill[gi] ? 0.9 * rec[ix] : 0);
@@ -189,16 +189,24 @@ function simulate(c, opts) {
     if (e.pu === 'N') return false;
     const m = e.mix, g = (k) => m[k] || 0;
     const tk = g('listen') + g('watch'), notes = g('notes'), rd = g('read'), pr = g('practice') + g('skill') + g('speak'), ds = g('qa') + g('discuss') + g('pair'), dead = g('admin') + g('wait');
+    const retr = e.retr && blk.min >= 3;                                                    // the observer counts a retrieval block only from 3 minutes
     const tkW = e.th === 'teacher' ? 1 : e.th === 'shared' ? 0.8 : 0.35;                  // listening to peers brings less new input
-    K.input = clamp(tk * tkW + 0.8 * notes + 0.7 * rd + (e.th === 'teacher' || e.th === 'shared' ? 0.35 * (pr + ds) : 0), 0, 1);
-    K.disc = clamp(1 - tk - notes - rd - dead, 0, 1);
+    const nW = e.th === 'together' ? 0.15 : 1;                                             // reading peers' posted work or notes in a group is not new input
+    /* R1b: a move that is not input is never treated as input. Review games and warm-ups bring back what was taught; they teach nothing new. */
+    K.input = retr ? 0 : clamp(tk * tkW * (e.th === 'together' ? 0.4 : 1) + (0.8 * notes + 0.7 * rd) * nW + (e.th === 'teacher' || e.th === 'shared' ? 0.35 * (pr + ds) : 0), 0, 1);
+    K.disc = retr ? 0 : clamp(1 - tk - notes - rd - dead, 0, 1);
     K.check = 0.7 + 0.3 * Math.min(1, e.show * 3);                                        // R3
-    K.ret = blk.assess ? 0 : Math.min(1, (e.show + 0.35 * pr) * (e.retr ? 1.25 : 1));
-    K.fbF = fbMap[e.fb] || 0.5; K.fbNow = e.fb === 'now'; K.th = e.th;
-    const act = clamp(1 - tk - dead, 0, 1), lvF = e.lv <= 1 ? 0.05 : e.lv === 2 ? 0.6 : 1, puW = e.pu === 'M' ? 1 : e.pu === 'T' ? 0.8 : 0.25;
-    K.lw = lvF * puW * act;
+    const raw = (e.show + 0.35 * pr) * (retr ? 1.25 : 1);
+    K.ret = blk.assess || raw <= 0 ? 0 : Math.min(1, 0.15 + 0.85 * raw);                   // a little response still counts for something, but switches do not swing it wildly
+    K.fbF = fbMap[e.fb] || 0.5; K.fbNow = e.fb === 'now'; K.th = e.th; K.retr = retr;
+    /* R12b: take-in-and-practise at level 2 or above builds some connection when students work with the idea in the block
+       (answer, finish steps, get a response from the teacher), and much less when they only listen. Moderately supported (Rosenshine 2012; Kirschner et al. 2006; IES guide R7). */
+    const work = !!e.think || (e.th !== 'teacher' && e.show >= 0.2 && e.fb === 'now' && g('assess') < 0.5);
+    const act = clamp(1 - tk, 0, 1), lvF = e.lv <= 1 ? 0.2 : e.lv === 2 ? 0.6 : 1, puW = e.pu === 'M' ? 0.4 : e.pu === 'T' ? 0.4 : work ? 0.36 : 0.15;
+    K.lw = retr ? 0 : lvF * puW * (e.pu === 'A' ? (work ? Math.max(act, 0.6) : 1) : act);
     K.uw = e.pu === 'T' ? (e.lv >= 3 ? 1 : 0.6) * act : 0;
     K.vol = e.g === 'class' && !e.think && g('qa') + g('discuss') > 0.05 && e.th !== 'teacher';
+    K.volNote = K.vol && g('qa') >= 0.05 && g('discuss') < g('qa');                       // seminars and discussions are exempt from the note
     K.grp = e.g === 'group' || e.g === 'pair'; K.acct = e.show >= 0.25 || !!e.think;
     K.passive = tk; K.resp = clamp(e.show * 1.6 + e.talk + 0.5 * pr, 0, 1);
     return true;
@@ -230,7 +238,8 @@ function simulate(c, opts) {
         const em = blk.min * (1 - (e.mix.admin || 0) - (e.mix.wait || 0));
         if (gl.length) {
           if (K.passive > 0.5) passiveMin += blk.min; learnMin += blk.min;
-          if (K.vol && K.ret > 0) volBlocks.add(blk.id);
+          if (K.volNote && K.ret > 0) volBlocks.add(blk.id);
+          { const lm = blk.min / gl.length; for (let k = 0; k < gl.length; k++) { if (K.input > 0.12) inMin[gl[k]] += lm; else if (!K.retr) actMin[gl[k]] += lm; } }
           const dose = Math.min(1.5, em / gl.length / 20), dR = Math.min(1, em / gl.length / 4);
           for (let k = 0; k < gl.length; k++) {
             taughtDays[gl[k]]++;
@@ -324,25 +333,27 @@ function simulate(c, opts) {
   const cand = [], taught = [], untaught = [];
   c.goals.forEach((g, gi) => { if (GM[gi] / S > 0.15) taught.push(gi); else if (!taughtDays[gi]) untaught.push(gi); });
   if (untaught.length && days.some((d) => d.lesson)) cand.push([95, untaught.length === 1 ? 'The goal ' + simShort(c.goals[untaught[0]].text) + ' is not taught in any planned lesson yet. Add it to a block, or decide it is not needed.' : untaught.length + ' goals are not taught in any planned lesson yet, for example ' + simShort(c.goals[untaught[0]].text) + '. Add them to blocks, or decide they are not needed.']);
+  { const act = c.goals.map((g, gi) => gi).filter((gi) => inMin[gi] + actMin[gi] >= 40 && inMin[gi] <= 0.2 * (inMin[gi] + actMin[gi]));
+    if (act.length) cand.push([88, 'Most of the time on ' + simShort(c.goals[act[0]].text) + (act.length > 1 ? ' (and ' + (act.length - 1) + ' other goal' + (act.length > 2 ? 's' : '') + ')' : '') + ' is activity with little or no teaching of the idea itself. In this model, making, discussing or playing does not build knowledge students have not yet been given; a clear explanation first would probably help.']); }
   if (taught.length) {
     const weak = taught.filter((gi) => lr[gi] / S < 0.2 && ll[gi] / S < 0.25);
-    if (weak.length >= Math.max(1, 0.3 * taught.length)) cand.push([90, (weak.length > taught.length / 2 ? 'Most of what is taught' : 'Some of what is taught') + ' is likely to be mostly gone ' + weeks + ' weeks after teaching stops, with neither practice spread over time nor connections to hold it (' + weak.length + ' of ' + taught.length + ' goals). Short warm-up questions from memory, review homework in later weeks, and a block where students explain or compare are the usual remedies.']);
+    if (weak.length >= Math.max(1, 0.3 * taught.length)) cand.push([90, (weak.length > taught.length / 2 ? 'Most of what is taught' : 'Some of what is taught') + ' is likely, in this model, to be mostly gone ' + weeks + ' weeks after teaching stops, with neither practice spread over time nor connections to hold it (' + weak.length + ' of ' + taught.length + ' goals). Short warm-up questions from memory, review homework in later weeks, and a block where students explain or compare are the usual remedies.']);
     const bridge = taught.filter((gi) => pre[gi].length && Math.sqrt((GL[gi] / S) * (GL[pre[gi][0]] / S)) < 0.25 && GR[pre[gi].reduce((b, x) => (GM[x] < GM[b] ? x : b), pre[gi][0])] / S < 0.3);
-    if (bridge.length) { const gi = bridge[0], low = pre[gi].reduce((b, x) => (GR[x] < GR[b] ? x : b), pre[gi][0]); cand.push([85, simShort(c.goals[gi].text) + ' builds on ' + simShort(c.goals[low].text) + ', which students are unlikely to be holding by then, so the link stays weak. Teach or revisit the earlier idea first.']); }
+    if (bridge.length) { const gi = bridge[0], low = pre[gi].reduce((b, x) => (GR[x] < GR[b] ? x : b), pre[gi][0]); cand.push([85, simShort(c.goals[gi].text) + ' builds on ' + simShort(c.goals[low].text) + ', which students may not be holding by then, so in this model the link tends to stay weak. Teaching or revisiting the earlier idea first would probably help.']); }
     const lone = taught.filter((gi) => (c.goals[gi].kind === 'understanding' || c.goals[gi].priority === 'lasting') && GR[gi] / S > 0.4 && GL[gi] / S < 0.25);
-    if (lone.length) cand.push([80, 'Students may be able to answer questions on ' + simShort(c.goals[lone[0]].text) + ' without seeing how it connects' + (lone.length > 1 ? ' (and ' + (lone.length - 1) + ' similar goal' + (lone.length > 2 ? 's' : '') + ')' : '') + '. Practised but not connected ideas fade faster than connected ones. A block where they explain, compare or discuss it, after you have taught it, builds the connection.']);
+    if (lone.length) cand.push([80, 'Students may be able to answer questions on ' + simShort(c.goals[lone[0]].text) + ' without seeing how it connects' + (lone.length > 1 ? ' (and ' + (lone.length - 1) + ' similar goal' + (lone.length > 2 ? 's' : '') + ')' : '') + '. In this model, ideas that are practised but not connected tend to fade faster than connected ones. A block where they explain, compare or discuss it, after you have taught it, usually helps the connection form.']);
     const held = taught.filter((gi) => ll[gi] / S >= 0.3);
-    if (held.length) cand.push([40, held.length + (held.length === 1 ? ' goal is' : ' goals are') + ' likely to be well connected, which is the part of learning that tends to last longest after teaching stops.']);
+    if (held.length) cand.push([40, held.length + (held.length === 1 ? ' goal is' : ' goals are') + ' likely to be well connected, which in this model tends to be the part of learning that lasts longest after teaching stops.']);
     const gap = taught.filter((gi) => seenN[gi] && seenSum[gi] / seenN[gi] > 0.55 && GL[gi] / S < 0.3);
-    if (gap.length) cand.push([70, 'The quiz results for ' + simShort(c.goals[gap[0]].text) + ' may look strong while connecting and using it is still weak. A written explanation or a task at level 3 would show more of what students can do.']);
+    if (gap.length) cand.push([70, 'The quiz results for ' + simShort(c.goals[gap[0]].text) + ' may look strong while connecting and using it is still weak. A written explanation or a task at level 3 would probably show more of what students can do.']);
     if (hwNights >= 4 && hwMinSum / hwNights >= 55) {
       let lo = 0, loN = 0; for (let s = 0; s < S; s++) if (hwRel[s] < 0.55 && hwAsk[s]) { lo += hwDone[s] / hwAsk[s]; loN++; }
-      if (loN) cand.push([65, 'Nights of an hour or more may be more than the students who find homework hardest can finish. Shorter nights, or one focused task, would likely help them most.']);
+      if (loN) cand.push([65, 'Nights of an hour or more may be more than the students who find homework hardest can finish. Shorter nights, or one focused task, may help them most.']);
     }
-    if (volBlocks.size >= 2) cand.push([60, 'In ' + volBlocks.size + ' activities only volunteers answer, so quieter students get less practice bringing ideas back. Having everyone respond (whiteboards, cards, a partner first) changes this.']);
-    if (learnMin > 0 && passiveMin / learnMin > 0.6) cand.push([50, 'Most class time is spent listening or watching, with few chances to respond. Questions to every student along the way would likely help attention and memory.']);
+    if (volBlocks.size >= 2) cand.push([60, 'In ' + volBlocks.size + ' activities only volunteers answer, so quieter students may get less practice bringing ideas back. The model assumes this; having everyone respond (whiteboards, cards, a partner first) would avoid it.']);
+    if (learnMin > 0 && passiveMin / learnMin > 0.6) cand.push([50, 'Most class time is spent listening or watching, with few chances to respond. Questions to every student along the way may help attention and memory.']);
     let maxU = 0; for (const gi of taught) maxU = Math.max(maxU, GU[gi] / S);
-    if (maxU < 0.3 && taught.length >= 3) cand.push([45, 'Few goals reach the point of students using them in a new situation. A task they have not seen, after they have been taught and have discussed the idea, is what builds that.']);
+    if (maxU < 0.3 && taught.length >= 3) cand.push([45, 'Few goals reach the point of students using them in a new situation. In this model that usually takes a task they have not seen, after they have been taught and have discussed the idea.']);
   }
   cand.sort((a, b) => b[0] - a[0]);
   return { students, goals, links, days: dayOut, byStudent, notes: cand.slice(0, 6).map((x) => x[1]), assumptions: SIM_ASSUMPTIONS.map((x) => ({ id: x.id, text: x.text })) };

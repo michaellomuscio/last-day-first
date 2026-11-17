@@ -17,12 +17,12 @@ function labelHTML(L, o) {
   h += '<div class="lf-bar mid"></div><div class="lf-head"><span>What students are doing' + (one ? '' : ' <i>in an average period</i>') + '</span><span>min</span><span>share</span></div>';
   for (const F of FAMILIES) { const v = L.fam[F.id] || 0; h += '<div class="lf-fam' + (v < 0.05 ? ' zero' : '') + '"><span><i style="background:' + F.color + '"></i>' + F.name + '</span><span>' + f1(avg(v)) + '</span><span>' + pc(v / tot) + '</span><em style="width:' + (100 * v / tot).toFixed(1) + '%;background:' + F.color + '"></em></div>'; }
   h += '<div class="lf-bar mid"></div>';
-  const ic = [['P', 'taking it in', '#62748e'], ['A', 'working with it', '#2a9086'], ['C', 'creating', '#e08a24'], ['I', 'building with others', '#d4527b'], ['N', 'neither', '#b9b2a3']];
+  const ic = [['P', 'taking it in', '#5d6f89'], ['A', 'working with it', '#1d7d74'], ['C', 'creating', '#e8952f'], ['I', 'building with others', '#c53e6b'], ['N', 'neither', '#b9b2a3']];
   h += '<div class="lf-stack">' + ic.map((x) => '<i style="width:' + (100 * L.icap[x[0]] / tot).toFixed(1) + '%;background:' + x[2] + '" title="' + x[1] + '"></i>').join('') + '</div>';
   h += '<div class="lf-mix">' + ic.filter((x) => L.icap[x[0]] / tot >= 0.005).map((x) => '<span><i style="background:' + x[2] + '"></i>' + x[1] + ' <b>' + pc(L.icap[x[0]] / tot) + '</b></span>').join('') + '</div>';
   h += '<div class="lf-note"><b>Who does the thinking</b> ' + split(L.thinker, THINKERS) + '</div>';
   h += '<div class="lf-note"><b>Students work</b> ' + split(L.group, GROUPINGS) + '</div>';
-  h += '<div class="lf-note"><b>Purpose</b> ' + split(L.purpose, PURPOSES.filter((p) => p[0] !== 'N')) + '</div>';
+  h += '<div class="lf-note"><b>Purpose</b> ' + split(L.purpose, PURPOSES.filter((p) => p[0] !== 'N'), (L.purpose.A || 0) + (L.purpose.M || 0) + (L.purpose.T || 0)) + '</div>';
   h += '<div class="lf-note"><b>Thinking level</b> ' + split(L.level, LEVELS) + '</div><div class="lf-bar thin"></div>';
   h += line('Students show what they know', '<b>' + f1(avg(L.show)) + ' min</b>') + line('<i>and get feedback while they can still use it</i>', '<b>' + f1(avg(L.fbNow)) + ' min</b>') +
     line('A typical student speaks for', '<b>' + (avg(L.talk) < 1 ? Math.round(avg(L.talk) * 60) + ' sec' : f1(avg(L.talk)) + ' min') + '</b>') +
@@ -37,7 +37,8 @@ function labelHTML(L, o) {
   if (c) {
     const I = c.intent, rows = [['Students active', S.active, I.active / 100, true], ['Working in pairs or groups', S.together, I.together / 100, true], ['Strategic or extended thinking', S.high, I.high / 100, true]];
     h += '<div class="lf-bar"></div><div class="lf-head"><span>Against your intent</span><span>you want</span><span>this is</span></div>';
-    for (const r of rows) h += '<div class="lf-int ' + (r[1] + 0.005 >= r[2] ? 'ok' : 'gap') + '"><span>' + r[0] + '</span><span>' + pc(r[2]) + '+</span><span>' + pc(r[1]) + '</span></div>';
+    /* Within five points of the aim counts as met, the same allowance the checks use. */
+    for (const r of rows) h += '<div class="lf-int ' + (r[1] + 0.05 >= r[2] ? 'ok' : 'gap') + '"><span>' + r[0] + '</span><span>' + pc(r[2]) + '+</span><span>' + pc(r[1]) + '</span></div>';
     if (L.hw && L.hw.nights) h += '<div class="lf-int ' + (L.hw.max <= I.hw ? 'ok' : 'gap') + '"><span>Homework a night, at most</span><span>' + I.hw + ' min</span><span>' + f1(L.hw.max) + ' min</span></div>';
   }
   return h + '<div class="lf-foot">This measures the plan, not the room. The shares follow how each block is described; change a block and they change.</div></div>';

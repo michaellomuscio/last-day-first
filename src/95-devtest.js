@@ -7,7 +7,7 @@ function runUiTest() {
   const step = (name, fn) => { errs.length = 0; try { fn(); if (errs.length) throw new Error(errs[0]); pass++; } catch (e) { fail++; console.log('TEST FAIL ' + name + ': ' + (e && e.message)); } if (App.modal) closeModal(); };
   const need = (ok, msg) => { if (!ok) throw new Error(msg); };
   const click = (sel) => { const el = document.querySelector(sel); need(el, 'nothing matches ' + sel); el.click(); return el; };
-  const clean = () => { const t = $('main').textContent; need($('main').innerHTML.length > 150, 'empty screen'); need(!/undefined|NaN|\[object/.test(t), 'bad text: ' + (t.match(/.{30}(undefined|NaN|\[object).{30}/) || [''])[0]); };
+  const clean = () => { const t = $('main').textContent; need($('main').innerHTML.length > 150, 'empty screen'); const tt = t.replace(/undefined slope/g, ''); need(!/undefined|NaN|\[object/.test(tt), 'bad text: ' + (tt.match(/.{30}(undefined|NaN|\[object).{30}/) || [''])[0]); };
   const views = CHAPTERS.map((x) => x[0]);
   const courses = [['sample', () => demoCourse()], ['blank', () => newCourse({})]].concat(KITS.map((k) => ['kit ' + k.id, () => kitToCourse(k, newCourse({}))]));
   for (const [name, make] of courses) for (const v of views) step(name + ' / ' + v, () => { App.c = make(); App.c.demo = true; App.sel = {}; go(v); clean(); });
@@ -26,7 +26,7 @@ function runUiTest() {
     const ti = document.querySelector('.editor .field.big'); ti.value = 'Renamed lesson'; ti.dispatchEvent(new Event('input', { bubbles: true })); need(l.title === 'Renamed lesson' && /Renamed lesson/.test(document.querySelector('.lessons-list').textContent), 'title did not update live');
     const n = l.blocks.length; click('.pal [data-act="addMove"][data-arg="tps"]'); need(l.blocks.length === n + 1, 'block not added');
     click('.insp [data-act="delBlock"]'); need(l.blocks.length === n, 'block not removed');
-    const ls = unitLessons(c, l.unit).length; click('[data-act="addLesson"][data-arg="workshop"]'); need(unitLessons(c, l.unit).length === ls + 1 && curLesson(c).blocks.length === 3, 'pattern lesson not added');
+    const ls = unitLessons(c, l.unit).length; click('[data-act="lessonChooser"]'); click('#modal [data-act="addLesson"][data-arg="workshop"]'); need(unitLessons(c, l.unit).length === ls + 1 && curLesson(c).blocks.length === 3, 'pattern lesson not added');
     click('[data-act="hwOn"]'); need(curLesson(c).hw, 'homework not set'); click('[data-act="hwOff"]'); need(!curLesson(c).hw, 'homework not removed');
     click('[data-act="play"]'); need(App.play.on, 'not playing'); click('[data-act="play"]');
     const lab = lessonLabel(c, curLesson(c)); need(lab.total > 0 && $('main').querySelector('.lf'), 'no label');
@@ -38,14 +38,28 @@ function runUiTest() {
     click('.warm [data-act="go"]'); need(App.view === 'start', 'did not leave the warm-up');
   });
   step('start a course from a kit and from blank', () => {
-    App.c = null; go('start'); App.setup.subject = 'math'; App.setup.kit = true; App.setup.title = ''; ACT.begin(); need(App.c.units.length >= 7 && App.view === 'goals', 'kit course not made'); clean();
-    App.setup.kit = false; App.setup.title = 'Geometry'; ACT.begin(); need(App.c.title === 'Geometry' && !App.c.units.length, 'blank course not made'); clean();
+    App.c = null; go('start'); const begin = () => { ACT.begin(); const b = document.querySelector('#modal [data-act="replaceGo"]'); if (b) b.click(); }; App.setup.subject = 'math'; App.setup.kit = true; App.setup.title = ''; begin(); need(App.c.units.length >= 7 && App.view === 'goals', 'kit course not made'); clean();
+    closeModal(); App.setup.kit = false; App.setup.title = 'Geometry'; begin(); need(App.c.title === 'Geometry' && !App.c.units.length, 'blank course not made'); clean();
     for (const v of views) { go(v); clean(); }
   });
   step('report extras', () => {
     App.c = kitToCourse(KITS[0], newCourse({})); App.c.demo = true; App.sel = {}; go('report'); clean();
     click('[data-act="repStress"]'); need(App.rep.stress && App.rep.stress.lost.length, 'no stress test'); click('[data-act="repSnap"]'); need(App.c.snaps.length === 1, 'no snapshot');
     need(packetHTML(App.c, []).length > 5000 && courseMarkdown(App.c).length > 500, 'packet too small'); need($('main').querySelector('.fp') && $('main').querySelector('.web'), 'no fingerprint or web');
+  });
+  step('a saved course is not replaced without asking', () => {
+    const real = kitToCourse(KITS[0], newCourse({})); real.title = 'Keep me'; App.c = real; saveNow(); App.c = null; go('start');
+    App.setup.kit = false; App.setup.title = 'Intruder'; ACT.begin(); need(document.querySelector('#modal [data-act="replaceGo"]'), 'no warning before replacing a saved course'); need(loadSaved().title === 'Keep me', 'saved course was overwritten before the answer');
+    click('#modal [data-act="closeModal"]'); need(loadSaved().title === 'Keep me' && !App.c, 'cancel did not keep the saved course');
+    ACT.tryDemo(); go('start'); need(/Keep me/.test($('main').textContent), 'the sample course hid the saved one'); ACT.warmup(); go('start'); need(loadSaved().title === 'Keep me', 'the warm-up replaced the saved course');
+  });
+  step('damaged and hostile course files', () => {
+    let threw = false; try { migrate({ v: 1, units: [], lessons: [], assess: [], goals: [{ id: '"><img src=x onerror=1>', text: 't' }] }); } catch (e) { threw = true; } need(threw, 'a hostile id was accepted');
+    const old = migrate({ v: 7, title: 'Old <b>file</b>', units: [{ id: 'U1', title: 'u' }], goals: [{ id: 'G1', text: 'g', unit: 'U9', kind: 'nonsense' }], lessons: [{ id: 'L1', unit: 'U1', title: 'x', blocks: [{ id: 'B1', move: 'nope', min: 'abc', goals: ['G1', 'G77'], sw: { evil: '<x>' } }] }], assess: [] });
+    need(old.v === COURSE_V && old.units[0].days > 0 && old.goals[0].unit === null && old.goals[0].kind === 'knowledge' && old.lessons[0].blocks[0].move === 'lecture' && old.lessons[0].blocks[0].goals.length === 1 && !Object.keys(old.lessons[0].blocks[0].sw).length, 'an older file was not repaired');
+    App.c = old; App.c.demo = true; App.sel = {}; for (const v of views) { go(v); clean(); need(!$('main').querySelector('b > b, img[onerror]') && $('main').innerHTML.indexOf('<b>file</b>') < 0, 'markup from a title reached the page'); }
+    need(packetHTML(old, []).indexOf('<b>file</b>') < 0, 'markup from a title reached the packet');
+    const c2 = newCourse({}); c2.school.end = '9999-06-04'; const t0 = performance.now(); meetingDates(c2); need(performance.now() - t0 < 50, 'a far-off end date is slow');
   });
   window.open = realOpen; download = realDl; App.c = null; App.view = 'start'; render();
   console.log('TEST DONE ' + pass + ' passed, ' + fail + ' failed'); document.title = 'TEST ' + pass + ' passed, ' + fail + ' failed';

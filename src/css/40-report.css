@@ -36,3 +36,10 @@
 .task i { flex: none; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 3px; display: grid; place-items: center; font-style: normal; font-weight: 900; color: var(--ink) }
 .task.done { color: var(--hi) } .task.done i { background: var(--hi); border-color: var(--hi) }
 @media (max-width: 1000px) { .gradegrid { grid-template-columns: repeat(3, minmax(0, 1fr)) } .gradebox { border-bottom: 1.5px solid var(--line) } .fpwrap, .warm { grid-template-columns: minmax(0, 1fr) } }
+
+.gloss { display: grid; gap: 4px; margin: 0 } .gloss dt { font-weight: 800; margin-top: 8px } .gloss dd { margin: 0; color: var(--ink2) }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px } .steps li { padding-left: 4px }
+.shapes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px } .shapes .card { text-align: left; gap: 3px } .shapes .card:hover { border-color: var(--line2); background: var(--hi) }
+.ban.kit { background: var(--card); border: 1.5px dashed var(--ink3); clip-path: none; color: var(--ink2) }
+.warmhint { font-size: 13px; color: #d9d4c7; border-left: 3px solid var(--hi); padding-left: 10px }
+.modal p { color: var(--ink2); line-height: 1.5 }

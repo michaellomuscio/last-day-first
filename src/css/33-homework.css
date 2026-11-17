@@ -1,4 +1,16 @@
-/* Homework workspace. Classes are prefixed hwv- so nothing else is touched. */
+/* Homework workspace. Classes are prefixed hwv- so nothing else is touched.
+   The root rule darkens the grey, amber, red and green tokens inside this screen so text reaches 4.5 to 1. */
+.ws.hwv { --ink3: #5e5a63; --warn: #8a5700; --red: #b8301c; --bad: #b0301d; --good: #26703f }
+.ws.hwv { grid-template-columns: minmax(0, 1fr) }
+.a11y-g { display: inline-block; max-width: 100% }
+.ws.hwv .panel { grid-template-columns: minmax(0, 1fr) }
+.ws.hwv .panel > h2 { flex-wrap: wrap }
+.ws.hwv [data-live] { min-width: 0 }
+.hwv-scroll { min-width: 0; max-width: 100% }
+.hwv-sum { max-width: 80ch }
+.hwv-col i.over { position: relative }
+.hwv-col i.over::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .8) 0 3px, transparent 3px 7px); pointer-events: none }
+.hwv-sw-over { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--ink); border-top: 4px solid var(--red); background: repeating-linear-gradient(135deg, #fff 0 2px, var(--ink2) 2px 5px) }
 .ws.hwv { max-width: 1100px }
 .hwv-chart { display: grid; gap: 4px }
 .hwv-plot { position: relative; height: 200px; margin-left: 34px; border-left: 2px solid var(--line2); border-bottom: 2.5px solid var(--line2) }
@@ -22,7 +34,7 @@
 .hwv-fig { padding: 10px 14px; border-right: 2px solid var(--line2); display: grid; gap: 2px; align-content: start }
 .hwv-fig:last-child { border-right: 0 }
 .hwv-fig b { font: 900 34px/1 var(--f-ui); letter-spacing: -.02em }
-.hwv-fig b small { font: 700 14px var(--f-ui); color: var(--ink3); letter-spacing: 0 }
+.hwv-fig b small { font: 700 14px var(--f-ui); color: var(--ink2); letter-spacing: 0 }
 .hwv-fig span { font-size: 13px; color: var(--ink2) }
 .hwv-fig.warn b { color: var(--red) }
 .hwv-splits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px }
@@ -46,7 +58,19 @@
 .hwv-est-out b { font-size: 22px }
 .hwv-est-out .hint { color: var(--ink); display: block; margin-top: 4px }
 .hwv-res ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80ch }
-@media (max-width: 1100px) { .hwv-row { grid-template-columns: minmax(0, 1fr) auto } .hwv-row .seg { grid-column: 1 / -1 } .hwv-no { grid-column: auto } .hwv-end { grid-column: 1 / -1; justify-content: flex-start } }
+@media (max-width: 1100px) { .hwv-row { grid-template-columns: minmax(0, 1fr) auto } .hwv-row .a11y-g { grid-column: 1 / -1 } .hwv-no { grid-column: auto } .hwv-end { grid-column: 1 / -1; justify-content: flex-start } }
+@media (pointer: coarse), (max-width: 700px) {
+  .ws.hwv .btn, .ws.hwv .seg button, .ws.hwv .chip, .ws.hwv .pick, .ws.hwv .field, .ws.hwv .x, .ws.hwv .step button, .ws.hwv .step input { min-height: 40px }
+  .ws.hwv .btn, .ws.hwv .seg button, .ws.hwv .step button { min-width: 40px }
+  .ws.hwv .seg button { display: inline-flex; align-items: center; justify-content: center }
+  .ws.hwv .step input { width: 56px }
+  /* A bar is a button, so on touch screens each night gets 40 px of width and the chart scrolls sideways. */
+  .hwv-scroll { overflow-x: auto; padding-bottom: 4px }
+  .hwv-chart { min-width: calc(var(--n) * 42px + 40px) }
+  .hwv-bars, .hwv-grp { gap: 2px }
+  .hwv-col { min-width: 40px; flex: 1 0 40px }
+  .hwv-grp { min-width: auto }
+}
 @media (max-width: 900px) { .hwv-figs { grid-template-columns: repeat(2, minmax(0, 1fr)) } .hwv-fig:nth-child(2) { border-right: 0 } .hwv-fig:nth-child(-n+2) { border-bottom: 2px solid var(--line2) } .hwv-splits { grid-template-columns: minmax(0, 1fr) } }
 .hwv-figs { margin-bottom: 16px }
 .hwv-labs { margin-top: 6px }

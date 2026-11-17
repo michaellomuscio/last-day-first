@@ -12,7 +12,8 @@ Or open `docs/index.html` from this repository in a browser. That file is the wh
 
 - **Try the five-minute warm-up** first: a flawed lesson to repair while the label changes.
 - **Start a new course**: pick a subject, a period length and how often the class meets, and say what you want your classroom to be like. Eight subjects have an optional starter kit.
-- Work saves in the browser as you go. **Save file** downloads the course so it can be reopened later or handed to a mentor.
+- Work saves in the browser as you go. The browser holds one course at a time, and the tool asks before replacing it. **Save file** downloads the course so it can be reopened later or handed to a mentor.
+- **Words** in the top bar explains every term the pages use.
 
 ## What a teacher builds
 
@@ -61,7 +62,7 @@ The label compares a design with what the teacher said they wanted. It does not 
 
 ## The report
 
-- **Grades** in six areas (Alignment, Evidence, Feasibility, Practice and feedback, Workload, Intent), each traceable to specific findings from 34 checks. An area shows a dash until enough exists to judge it.
+- **Grades** in six areas (Alignment, Evidence, Feasibility, Practice and feedback, Workload, Intent), each traceable to specific findings from 36 checks. An area shows a dash until enough exists to judge it: the areas that depend on lessons wait until ten class days, or one whole unit, are planned. A grade counts design problems in what is built, set against the teacher's own intent. It is for the teacher's own use and does not judge teaching.
 - **The fingerprint**: one ring per unit, first unit at the centre. Color is what students do, thickness is how much of the time asks for strategic or extended thinking, dots are major assessments.
 - **The web of ideas**: a simulated class lives through the plan. Dots are goals, lines join a goal to what it builds on, and the picture can be read on the last planned day, eight weeks later, or as the teacher's own assessments would have shown it.
 - **Stress test**: takes away the days a real year loses and runs it again.
@@ -70,9 +71,12 @@ The label compares a design with what the teacher said they wanted. It does not 
 
 ## What it is honest about
 
+- A syllabus that is not ready prints with a draft notice saying what is missing.
+
 - It measures the plan, not the room.
 - The shares on a label follow how each block is described. Change a block and they change.
 - Setup and moving time are assumptions. No published figure exists for planned transitions, so the teacher sets the pace.
+- A course file opened from elsewhere is checked and repaired before use, and refused if it cannot be a course.
 - The simulated class illustrates well-established findings about practice, spacing, feedback and forgetting. It is not a forecast of real students, and the report shows bands, not percentages.
 - Several famous numbers in this field are weaker than their reputation. `research/` records what was verified, what was only found second-hand and what could not be confirmed.
 - The approach is backward design, set out by Grant Wiggins and Jay McTighe. Their name for their framework is a registered trademark, so the tool describes the ideas in its own words and credits them.
@@ -97,7 +101,7 @@ For the interface, open `dist/index.html?test=1`: a script visits every screen f
 | Files | What they hold |
 | --- | --- |
 | `src/00-core.js` to `src/32-label.js` | Helpers, the vocabulary (codes, moves, option tables), the course model, the demo course, kit loading, the observer, the label |
-| `src/35-checks.js` | The 34 design checks and the grades |
+| `src/35-checks.js` | The 36 design checks and the grades |
 | `src/40-sim.js` | The simulated class and the stress test |
 | `src/45-docs.js` | The documents in the packet |
 | `src/kits/` | The eight starter kits |
@@ -110,6 +114,12 @@ For the interface, open `dist/index.html?test=1`: a script visits every screen f
 Files numbered below 50 never touch the page, so the same code runs in Node for the tests.
 
 Preview hooks: `dist/index.html?demo=1&view=lessons&unit=1&lesson=3`, `?kit=math&view=calendar`, and `&click=` followed by CSS selectors separated by `|` to click through a sequence.
+
+`tools/play.js` drives the tool in headless Chrome from Node with real clicks and typing (no dependencies), for scripted play-testing. In the browser console, `LDF` exposes the current course, its label, checks, grades, simulation and packet.
+
+## How it was reviewed
+
+Before release the tool was played and examined by scripted reviewers in six roles (a first-year English teacher, a chemistry teacher on a block schedule starting from a blank page, a veteran instructional coach checking fairness and arithmetic, a QA tester, an accessibility and small-screen reviewer, and an academic leader reading the printed packet), and each starter kit was read line by line by a reviewer in the role of a department chair in that subject. Their findings changed how moves are measured, how the checks and grades treat explicit instruction, what the documents print, how files are loaded and saved, and the kits themselves. None of them is a person: the kits and the tool still deserve a human expert's read.
 
 ## Not built yet
 

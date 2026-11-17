@@ -1,4 +1,10 @@
-/* Evidence workspace. Classes are prefixed ev- so nothing else is touched. */
+/* Evidence workspace. Classes are prefixed ev- so nothing else is touched.
+   The root rule darkens the grey, amber, red and green tokens inside this screen so text on paper, card and the tinted rows reaches 4.5 to 1. */
+.ws.ev { --ink3: #5e5a63; --warn: #8a5700; --red: #b8301c; --bad: #b0301d; --good: #26703f }
+.ws.ev { grid-template-columns: minmax(0, 1fr) }
+.ws.ev .panel { grid-template-columns: minmax(0, 1fr) }
+.ws.ev .panel > h2 { flex-wrap: wrap }
+.a11y-g { display: inline-block; max-width: 100% }
 .ws.ev { max-width: 1100px }
 .ev-h { font: 800 16px var(--f-ui); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px }
 .ev-h small { font: 500 12.5px var(--f-ui) }
@@ -44,6 +50,14 @@
 .ev-course { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px }
 .ev-big { font: 900 32px/1 var(--f-ui) }
 .ev-big b { font-weight: 900 }
+@media (pointer: coarse), (max-width: 700px) {
+  .ws.ev .btn, .ws.ev .seg button, .ws.ev .chip, .ws.ev .pick, .ws.ev .field, .ws.ev .x, .ws.ev .step button, .ws.ev .step input, .ev-unit, .ev-toggle, .ev-cell { min-height: 40px }
+  .ws.ev .btn, .ws.ev .seg button, .ws.ev .chip, .ws.ev .x, .ws.ev .step button, .ev-cell { min-width: 40px }
+  .ws.ev .seg button { display: inline-flex; align-items: center; justify-content: center }
+  .ws.ev .step input { width: 56px }
+  .ws.ev .x { width: 40px }
+  .ev-cell { height: 40px }
+}
 @media (max-width: 900px) { .ev-fields, .ev-course { grid-template-columns: minmax(0, 1fr) } .ev-v { grid-template-columns: minmax(0, 1fr); gap: 3px } .ev-grid th.g { min-width: 150px } }
 .ev-fields .stack { justify-items: start; align-content: start }
 .ev-fields .stack .field { width: 100% }

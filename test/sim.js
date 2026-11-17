@@ -143,7 +143,7 @@ test('h. a level-1 quiz can look strong while connections are weak', () => {
   const c = newCourse({}); c.school.lost = 0;
   const u = addUnit(c, { days: 8 }), g = addGoal(c, { unit: u.id, text: 'Parts and what they do', kind: 'understanding', level: 3 });
   const quiz = addAssess(c, u.id, { method: 'selected', level: 1, goals: [g.id], kind: 'minor', targets: ['knowledge'] });
-  for (let i = 0; i < 8; i++) { const l = addLesson(c, u.id, {}); if (i < 7) { addBlock(c, l, 'mini', 25).goals = [g.id]; addBlock(c, l, 'guided', 18).goals = [g.id]; } else addBlock(c, l, 'quiz', 15).goals = [g.id], l.blocks[0].assess = quiz.id; }
+  for (let i = 0; i < 8; i++) { const l = addLesson(c, u.id, {}); if (i < 7) { addBlock(c, l, 'mini', 25).goals = [g.id]; addBlock(c, l, 'indep', 18).goals = [g.id]; } else addBlock(c, l, 'quiz', 15).goals = [g.id], l.blocks[0].assess = quiz.id; }
   const r = avgOver((s) => simulate(c, { seed: s }).goals[g.id].seen), lk = avgOver((s) => simulate(c, { seed: s }).goals[g.id].linked);
   ok(r >= 0.6, 'seen ' + f2(r) + ' is not high');
   ok(lk < 0.35, 'linked ' + f2(lk) + ' is not low');
@@ -215,6 +215,49 @@ test('k. eight weeks on: heard once < massed < spaced, and connections fade slow
   const x = simulate(d, { seed: 7, until: last }).goals[g];
   ok(x.later.recall >= 0.6 * x.later.linked - 1e-9, 'recall floor under connected goal');
   return 'later recall ' + f2(band.once) + ' < ' + f2(band.massed) + ' < ' + f2(band.spaced) + '; linked kept ' + f2(r);
+});
+
+/* Five-day weeks on one goal, as an instructional coach might compare them. */
+function weekCourse(name) {
+  const W = {
+    explicit: [['retrieval', 5], ['mini', 12], ['worked', 10, { fade: 'they' }], ['guided', 10], ['indep', 10, { fb: 'circulate' }], ['exit', 5]],
+    seminar: [['sread', 12, { task: 'task' }], ['seminar', 25, { prep: 'notes' }], ['reflect', 8]],
+    aimless: [['game', 15], ['simulate', 20], ['gallery', 10]],
+    volunteers: [['qa', 20], ['guided', 20]],
+  };
+  const c = newCourse({}); c.school.lost = 0; const u = addUnit(c, { days: 5 }), g = addGoal(c, { unit: u.id, text: 'The idea of the week', kind: 'understanding', level: 2 });
+  for (let i = 0; i < 5; i++) {
+    const l = addLesson(c, u.id, {}), bl = name === 'lecture' ? [i % 2 ? ['video', 45] : ['lecture', 45]] : W[name];
+    bl.forEach((b) => { const k = addBlock(c, l, b[0], b[1]); k.goals = [g.id]; if (b[2]) k.sw = b[2]; });
+  }
+  return { c, id: g.id };
+}
+const weekStats = (name) => { const o = weekCourse(name); const r = SEEDS.map((s) => simulate(o.c, { seed: s, until: 4 }).goals[o.id]); return { recall: mean(r.map((x) => x.recall)), linked: mean(r.map((x) => x.linked)), use: mean(r.map((x) => x.use)), later: mean(r.map((x) => x.later.recall)) }; };
+
+test('l. a good explicit week connects ideas, a seminar week more, and lazy weeks little', () => {
+  const ex = weekStats('explicit'), sm = weekStats('seminar'), lz = weekStats('lecture'), ai = weekStats('aimless');
+  ok(ex.linked >= 0.28 && ex.linked <= 0.45, 'explicit linked ' + f2(ex.linked));
+  ok(sm.linked >= 0.42 && sm.linked <= 0.58, 'seminar linked ' + f2(sm.linked));
+  ok(lz.linked >= 0.03 && lz.linked <= 0.12, 'lazy lecture linked ' + f2(lz.linked));
+  ok(ai.linked < 0.2 && ai.recall < 0.7, 'aimless games recall ' + f2(ai.recall) + ' linked ' + f2(ai.linked));
+  ok(ex.linked < sm.linked && sm.linked > lz.linked * 3 && ex.linked > lz.linked * 3, 'ordering of linked');
+  ok(ex.later >= sm.later, 'explicit later recall ' + f2(ex.later) + ' below seminar ' + f2(sm.later));
+  ok(ex.later > lz.later + 0.2 && ex.later > ai.later + 0.2, 'explicit later recall not clearly above lazy weeks');
+  const lines = [['explicit', ex], ['seminar', sm], ['lecture', lz], ['games', ai]].map((x) => x[0] + ' ' + f2(x[1].recall) + '/' + f2(x[1].linked) + '/' + f2(x[1].use) + '/' + f2(x[1].later));
+  return 'recall/linked/use/later: ' + lines.join(', ');
+});
+
+test('m. notes: aimless activity is flagged; the volunteers note stays off seminars and shows for volunteer-only questions', () => {
+  const o = weekCourse('aimless'), r = simulate(o.c, { seed: 1, until: 4 });
+  ok(r.notes.some((n) => /activity with little or no teaching/.test(n)), 'no activity note: ' + r.notes.join(' | '));
+  const sem = simulate(weekCourse('seminar').c, { seed: 1 });
+  ok(!sem.notes.some((n) => /only volunteers/.test(n)), 'volunteers note fired on a seminar week');
+  const vol = simulate(weekCourse('volunteers').c, { seed: 1 });
+  ok(vol.notes.some((n) => /only volunteers/.test(n)), 'volunteers note missing for volunteer-only questions: ' + vol.notes.join(' | '));
+  const all = weekCourse('volunteers'); all.c.lessons.forEach((l) => l.blocks.forEach((b) => { if (b.move === 'qa') b.sw = { who: 'all' }; if (b.move === 'guided') b.sw = { who: 'all' }; }));
+  ok(!simulate(all.c, { seed: 1 }).notes.some((n) => /only volunteers/.test(n)), 'volunteers note fired when everyone responds');
+  ok(!r.notes.concat(sem.notes).some((n) => /\bis what builds\b|\bbuilds the connection\b/.test(n)), 'note states an assumption as fact');
+  return 'activity note present, volunteers note exempts seminars';
 });
 
 if (failed) { console.log(failed + ' failed'); process.exit(1); }
