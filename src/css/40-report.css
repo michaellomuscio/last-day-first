@@ -1,0 +1,38 @@
+.report { max-width: 1240px }
+.gradegrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 2px solid var(--line2); border-radius: var(--r); overflow: hidden }
+.gradebox { display: grid; gap: 3px; padding: 12px 12px 13px; border-right: 1.5px solid var(--line); align-content: start; text-align: left; background: var(--card) }
+.gradebox:last-child { border-right: 0 } .gradebox:hover { background: var(--hi) }
+.gradebox b { font: 900 46px/1 var(--f-ui); font-stretch: 110%; letter-spacing: -.03em }
+.gradebox b.good { color: var(--good) } .gradebox b.bad { color: var(--bad) } .gradebox b.na { color: var(--ink3) }
+.gradebox .hint { font-size: 12px; line-height: 1.3 }
+.fpwrap { display: grid; grid-template-columns: minmax(180px, 300px) minmax(0, 1fr); gap: 20px; align-items: center }
+.fp { width: 100%; height: auto; display: block }
+.fpread { font: 600 17px/1.35 var(--f-ui) }
+.labels { align-items: start }
+.webwrap { overflow-x: auto; border: 2px solid var(--line2); border-radius: var(--r); background: #fbf8f0 }
+.web { display: block; width: 100%; height: auto }
+.webcol { font: 700 11px var(--f-ui); fill: var(--ink2) }
+.weblink { stroke: #cfc8b8; stroke-width: 1; stroke-dasharray: 2 5 } .weblink.partial { stroke: #6b6a70; stroke-width: 1.8; stroke-dasharray: 6 4 } .weblink.strong { stroke: #17171b; stroke-width: 2.8; stroke-dasharray: none }
+.webdot circle { stroke: #17171b; stroke-width: 2 } .webdot text { font: 800 10px var(--f-ui); fill: var(--ink2) }
+.webdot.strong circle { fill: #17171b } .webdot.partial circle { fill: #9a979c } .webdot.faint circle { fill: #e9e2d3 } .webdot.none circle { fill: #fbf8f0; stroke-dasharray: 3 3; stroke: #85818a }
+.wkey { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #17171b; display: inline-block } .wkey.strong { background: #17171b } .wkey.partial { background: #9a979c } .wkey.faint { background: #e9e2d3 } .wkey.none { background: #fbf8f0; border-style: dashed; border-color: #85818a }
+.simnote { padding: 7px 11px; border-left: 4px solid var(--red); background: var(--card); font-size: 13.5px }
+.assume { margin: 8px 0 0; padding-left: 20px; color: var(--ink2); font-size: 13px; display: grid; gap: 4px }
+.report details > summary { cursor: pointer; font: 700 12.5px var(--f-ui); color: var(--ink2) }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px }
+.tbl th { text-align: left; font: 800 10.5px var(--f-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); padding: 5px 8px 5px 0; border-bottom: 2px solid var(--line2) }
+.tbl td { padding: 6px 8px 6px 0; border-bottom: 1.5px solid var(--line); font-variant-numeric: tabular-nums }
+.tbl tr.now td { background: var(--hi) }
+.scrollx { overflow-x: auto }
+.doclist { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px }
+.doclist .card { text-align: left; gap: 3px } .doclist .card:hover { border-color: var(--line2); background: var(--hi) }
+.bans { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px }
+.ban { display: grid; gap: 2px; padding: 9px 10px 16px; background: var(--sunk); color: var(--ink3); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 10px), 0 100%); align-content: start }
+.ban b { font: 900 13px/1.1 var(--f-ui); text-transform: uppercase; letter-spacing: .02em } .ban span { font-size: 11.5px; line-height: 1.25 }
+.ban.won { background: var(--ink); color: #fff; box-shadow: inset 0 5px 0 var(--hi) } .ban.won span { color: #d9d4c7 }
+.warm { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 22px; padding: 16px 18px; background: var(--ink); color: #fff; border-radius: var(--r); align-items: center }
+.warm h2 { font: 900 24px/1.1 var(--f-ui); font-stretch: 110% } .warm p { color: #d9d4c7; max-width: 62ch } .warm .eyebrow { color: var(--hi) }
+.task { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; font-size: 13.5px; padding: 3px 0 }
+.task i { flex: none; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 3px; display: grid; place-items: center; font-style: normal; font-weight: 900; color: var(--ink) }
+.task.done { color: var(--hi) } .task.done i { background: var(--hi); border-color: var(--hi) }
+@media (max-width: 1000px) { .gradegrid { grid-template-columns: repeat(3, minmax(0, 1fr)) } .gradebox { border-bottom: 1.5px solid var(--line) } .fpwrap, .warm { grid-template-columns: minmax(0, 1fr) } }

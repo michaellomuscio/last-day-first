@@ -1,0 +1,9 @@
+clamp sum esc clone pctOf mins plural hash isoOf dateOf niceDate
+CODES FAMILIES FAMILY_BY ICAP THINKERS GROUPINGS PURPOSES LEVELS LEVEL_NAME GOAL_KINDS PRIORITIES METHODS TARGETS FEEDBACKS RUBRICS HW_PURPOSES HW_KINDS HW_FEEDBACK HW_GRADING SOURCES SUBJECTS MOVE_GROUPS MOVES MOVE_BY PATTERNS
+newCourse migrate defaultDaysOff unitOf goalOf lessonOf assessOf unitLessons unitAssess unitGoals plannedDays addGoal addUnit addLesson addBlock addAssess newHomework applyPattern removeUnit removeGoal removeAssess blockEff meetingDates availableDays budgetedDays unitSpans
+blankLabel lessonOverhead lessonLabel addLabel shares homeworkStats unitLabel courseLabel courseDays goalMap METHOD_FIT methodFit
+demoCourse
+KITS kitToCourse validateKit labelHTML
+LATE_POLICIES RETAKE_POLICIES DOCS packetHTML courseMarkdown courseFileName
+runChecks gradeCourse checksFor gradeLetter CHECK_AREAS
+simulate stressTest simStudents SIM_RULES simDetect

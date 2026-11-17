@@ -1,0 +1,53 @@
+/* Homework workspace. Classes are prefixed hwv- so nothing else is touched. */
+.ws.hwv { max-width: 1100px }
+.hwv-chart { display: grid; gap: 4px }
+.hwv-plot { position: relative; height: 200px; margin-left: 34px; border-left: 2px solid var(--line2); border-bottom: 2.5px solid var(--line2) }
+.hwv-axis { position: absolute; inset: 0; pointer-events: none }
+.hwv-gl { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line) }
+.hwv-gl span { position: absolute; left: -36px; top: -8px; width: 30px; text-align: right; font: 600 10.5px var(--f-ui); color: var(--ink3) }
+.hwv-limit { position: absolute; left: 0; right: 0; border-top: 2.5px dashed var(--red); pointer-events: none; z-index: 2 }
+.hwv-limit span { position: absolute; right: 0; bottom: 2px; padding: 1px 6px; background: var(--card); font: 800 11px var(--f-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--red) }
+.hwv-bars { position: absolute; inset: 0; display: flex; gap: 8px }
+.hwv-grp { display: flex; gap: 2px; min-width: 0 }
+.hwv-col { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; justify-content: center; position: relative }
+.hwv-col i { display: block; width: 100%; max-width: 26px; border: 1.5px solid var(--ink); border-bottom: 0 }
+.hwv-col i.over { border-top: 4px solid var(--red) }
+.hwv-col:hover { background: var(--hi) }
+.hwv-col.none s { display: block; width: 100%; max-width: 26px; height: 0 }
+.hwv-col.empty { background: repeating-linear-gradient(90deg, transparent 0 3px, rgba(0, 0, 0, .03) 3px 4px) }
+.hwv-labs { display: flex; gap: 8px; margin-left: 34px }
+.hwv-lab { min-width: 0; border-left: 2px solid var(--line2); padding: 2px 0 0 5px; font: 700 11px var(--f-ui); color: var(--ink2); overflow: hidden }
+.hwv-lab span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.hwv-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 2px solid var(--line2) }
+.hwv-fig { padding: 10px 14px; border-right: 2px solid var(--line2); display: grid; gap: 2px; align-content: start }
+.hwv-fig:last-child { border-right: 0 }
+.hwv-fig b { font: 900 34px/1 var(--f-ui); letter-spacing: -.02em }
+.hwv-fig b small { font: 700 14px var(--f-ui); color: var(--ink3); letter-spacing: 0 }
+.hwv-fig span { font-size: 13px; color: var(--ink2) }
+.hwv-fig.warn b { color: var(--red) }
+.hwv-splits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px }
+.hwv-split { display: flex; height: 18px; border: 2px solid var(--line2) }
+.hwv-split i { display: block; height: 100%; border-right: 1.5px solid var(--card) }
+.hwv-split i:last-child { border-right: 0 }
+.hwv-keys { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12.5px; color: var(--ink2) }
+.hwv-keys span { display: inline-flex; align-items: center; gap: 5px }
+.hwv-keys i { width: 9px; height: 9px; display: inline-block; border: 1px solid var(--ink) }
+.hwv-list { display: grid }
+.hwv-uh { padding: 12px 0 4px; border-bottom: 2px solid var(--line2) }
+.hwv-uh:first-child { padding-top: 0 }
+.hwv-row { display: grid; grid-template-columns: minmax(150px, 1.2fr) auto minmax(0, 1.6fr) auto; gap: 8px 14px; align-items: center; padding: 9px 0; border-bottom: 1.5px solid var(--line) }
+.hwv-t { display: grid; min-width: 0 }
+.hwv-t b { overflow-wrap: anywhere }
+.hwv-ctl { display: inline-flex; align-items: center; gap: 6px }
+.hwv-no { grid-column: 2 / 4 }
+.hwv-end { display: inline-flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap }
+.hwv-est-in { max-width: 460px }
+.hwv-est-out { display: block; font-size: 16px; padding: 10px 12px; background: var(--hi); border: 2px solid var(--line2) }
+.hwv-est-out b { font-size: 22px }
+.hwv-est-out .hint { color: var(--ink); display: block; margin-top: 4px }
+.hwv-res ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 80ch }
+@media (max-width: 1100px) { .hwv-row { grid-template-columns: minmax(0, 1fr) auto } .hwv-row .seg { grid-column: 1 / -1 } .hwv-no { grid-column: auto } .hwv-end { grid-column: 1 / -1; justify-content: flex-start } }
+@media (max-width: 900px) { .hwv-figs { grid-template-columns: repeat(2, minmax(0, 1fr)) } .hwv-fig:nth-child(2) { border-right: 0 } .hwv-fig:nth-child(-n+2) { border-bottom: 2px solid var(--line2) } .hwv-splits { grid-template-columns: minmax(0, 1fr) } }
+.hwv-figs { margin-bottom: 16px }
+.hwv-labs { margin-top: 6px }
+.hwv-chart .legend { margin-top: 8px }

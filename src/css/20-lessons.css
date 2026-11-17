@@ -1,0 +1,37 @@
+.ws.lessons { max-width: none }
+.lgrid { display: grid; grid-template-columns: 236px minmax(0, 1fr) 372px; gap: 22px; align-items: start }
+.lessons-list { display: grid; gap: 12px; position: sticky; top: 0 }
+.lcard { text-align: left; gap: 6px; padding: 9px 11px }
+.lcard:hover { border-color: var(--line2) }
+.mini { display: flex; height: 9px; border: 1.5px solid var(--line2); background: var(--card); overflow: hidden }
+.mini i { display: block; height: 100% }
+.addl summary { list-style: none; display: inline-flex; cursor: pointer } .addl summary::-webkit-details-marker { display: none }
+.addl .card { text-align: left; gap: 2px } .addl .card:hover { border-color: var(--line2); background: var(--hi) }
+.editor { gap: 14px }
+.strip { position: relative; display: flex; height: 74px; border: 2.5px solid var(--line2); border-radius: var(--r); background: var(--card); overflow: visible }
+.blk { height: 100%; min-width: 0; border-right: 2px solid var(--line2); display: grid; align-content: space-between; padding: 6px 7px; color: #fff; text-align: left; overflow: hidden; position: relative }
+.blk b { font: 800 12.5px/1.1 var(--f-ui); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-shadow: 0 1px 0 rgba(0, 0, 0, .25) }
+.blk i { font: 900 15px/1 var(--f-ui); font-style: normal; text-shadow: 0 1px 0 rgba(0, 0, 0, .25) }
+.blk:hover { filter: brightness(1.1) }
+.blk.sel { outline: 4px solid var(--hi); outline-offset: -4px; box-shadow: inset 0 0 0 2px var(--ink) }
+.blk.over { background: repeating-linear-gradient(135deg, #cfc8b8 0 6px, #e9e2d3 6px 12px); padding: 0 }
+.blk.spare { background: repeating-linear-gradient(90deg, transparent 0 7px, var(--line) 7px 8px); border-right: 0; padding: 0 }
+.bell { position: absolute; top: -9px; bottom: -9px; width: 0; border-left: 3px dashed var(--red); pointer-events: none }
+.bell i { position: absolute; top: -13px; left: -14px; font: 800 10px var(--f-ui); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--red) }
+.head { position: absolute; top: -6px; bottom: -6px; width: 3px; background: var(--ink); left: 0; pointer-events: none; box-shadow: 0 0 0 2px var(--hi) }
+.ruler { position: relative; height: 16px; margin-top: 3px }
+.ruler span { position: absolute; transform: translateX(-50%); font: 600 10.5px var(--f-ui); color: var(--ink3); font-variant-numeric: tabular-nums }
+.insp h2 .dot { width: 12px; height: 12px; margin-right: 4px }
+.insp details > summary, .pal details > summary { cursor: pointer; font: 700 12.5px var(--f-ui); color: var(--ink2) }
+.palrow { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: start; padding: 6px 0; border-top: 1.5px solid var(--line) }
+.palrow .lbl { padding-top: 6px }
+.pal .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 3px 9px }
+.observer { position: sticky; top: 0; gap: 10px }
+.room { border: 2.5px solid var(--line2); border-radius: var(--r); overflow: hidden; background: #fbf8f0 }
+.room canvas { display: block; width: 100%; height: auto }
+.roomcap { padding: 6px 10px; border-top: 2px solid var(--line2); background: var(--ink); color: #fff; font-size: 12.5px; min-height: 46px; display: grid; gap: 1px }
+.roomcap span { color: #d9d4c7; font-size: 12px }
+.legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 12px; color: var(--ink2) }
+.legend span { display: inline-flex; align-items: center; gap: 5px }
+@media (max-width: 1250px) { .lgrid { grid-template-columns: 210px minmax(0, 1fr) } .observer { grid-column: 1 / -1; position: static; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start } .observer .room { grid-row: span 3 } }
+@media (max-width: 800px) { .lgrid { grid-template-columns: minmax(0, 1fr) } .lessons-list { position: static } .observer { grid-template-columns: minmax(0, 1fr) } .palrow { grid-template-columns: minmax(0, 1fr) } }

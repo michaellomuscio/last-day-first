@@ -1,0 +1,6 @@
+.start { max-width: 980px; margin: 0 auto; gap: 26px }
+.hero { display: grid; gap: 14px; padding: 18px 0 4px }
+.hero h1 { font: 900 clamp(40px, 7vw, 76px)/.95 var(--f-ui); font-stretch: 118%; letter-spacing: -.035em }
+.hero h1 i { font-style: normal; background: linear-gradient(transparent 58%, var(--hi) 58%) }
+.hero p { font-size: 18px; line-height: 1.45; color: var(--ink2); max-width: 62ch }
+.fine { max-width: 80ch }

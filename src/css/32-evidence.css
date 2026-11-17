@@ -1,0 +1,49 @@
+/* Evidence workspace. Classes are prefixed ev- so nothing else is touched. */
+.ws.ev { max-width: 1100px }
+.ev-h { font: 800 16px var(--f-ui); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px }
+.ev-h small { font: 500 12.5px var(--f-ui) }
+.ev-units { display: flex; flex-wrap: wrap; gap: 8px }
+.ev-unit { display: grid; gap: 4px; justify-items: start; padding: 8px 11px; border: 2px solid var(--line); border-radius: var(--r); background: var(--card); text-align: left; min-width: 150px; max-width: 220px }
+.ev-unit:hover { border-color: var(--line2) }
+.ev-unit.on { border-color: var(--line2); box-shadow: 4px 4px 0 var(--hi) }
+.ev-unit b { font-size: 13.5px }
+.ev-goals { display: grid }
+.ev-goal { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1.5px solid var(--line) }
+.ev-goal:first-child { border-top: 0 }
+.ev-goal b { font-weight: 700 }
+.ev-mark { font-size: 18px; width: 22px; text-align: center; flex: none; color: var(--ink) }
+.ev-goal.none .ev-mark { color: var(--bad) }
+.ev-goal.none { background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(207, 61, 39, .06) 8px 16px) }
+.ev-card { gap: 12px }
+.ev-major { border: 2px solid var(--line2); padding: 14px 16px }
+.ev-major .field.big { font-size: 18px }
+.ev-minor { padding: 8px 12px }
+.ev-minor.sel { box-shadow: 4px 4px 0 var(--hi) }
+.ev-toggle { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; padding: 3px 0 }
+.ev-caret { width: 12px; font-size: 12px; color: var(--ink3) }
+.ev-verdicts { display: grid; gap: 6px; padding: 9px 12px; background: var(--paper); border-left: 4px solid var(--line2) }
+.ev-v { display: grid; grid-template-columns: 56px auto minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13.5px }
+.ev-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 22px; align-items: start }
+.ev-wide { grid-column: 1 / -1 }
+.ev-real { padding-top: 10px; border-top: 1.5px dashed var(--line) }
+.ev-gridwrap { overflow-x: auto }
+.ev-grid { border-collapse: collapse; width: 100%; font-size: 13px }
+.ev-grid th, .ev-grid td { border: 1.5px solid var(--line); padding: 0; text-align: center }
+.ev-grid thead th { vertical-align: bottom; background: var(--paper); padding: 6px 6px; min-width: 96px; max-width: 140px; font-weight: 700 }
+.ev-col { display: grid; gap: 2px; font-size: 12px; line-height: 1.2 }
+.ev-col i { font: 800 10px var(--f-ui); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3) }
+.ev-grid th.g { text-align: left; padding: 6px 9px; min-width: 220px; font-weight: 600; background: var(--card) }
+.ev-grid thead th.g { background: var(--paper) }
+.ev-grid tr.none th.g { background: #f8e3dd; box-shadow: inset 4px 0 0 var(--red) }
+.ev-cell { width: 100%; height: 36px; font-size: 16px; color: var(--ink) }
+.ev-cell:hover { background: var(--hi) }
+.ev-cell.on { background: var(--hi); font-weight: 900 }
+.ev-bar { display: flex; height: 22px; border: 2px solid var(--line2); border-radius: var(--r); overflow: hidden }
+.ev-bar i { display: block; height: 100%; border-right: 2px solid var(--card) }
+.ev-bar i:last-child { border-right: 0 }
+.ev-course { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px }
+.ev-big { font: 900 32px/1 var(--f-ui) }
+.ev-big b { font-weight: 900 }
+@media (max-width: 900px) { .ev-fields, .ev-course { grid-template-columns: minmax(0, 1fr) } .ev-v { grid-template-columns: minmax(0, 1fr); gap: 3px } .ev-grid th.g { min-width: 150px } }
+.ev-fields .stack { justify-items: start; align-content: start }
+.ev-fields .stack .field { width: 100% }
